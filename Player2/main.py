@@ -40,6 +40,6 @@ class Runner:
 
 if __name__ == "__main__":
     host = "127.0.0.1" if len(sys.argv) < 2 else sys.argv[1]
-    port = 31002 if len(sys.argv) < 3 else int(sys.argv[2])
+    port = 31001 if len(sys.argv) < 3 else int(sys.argv[2])
     token = "0000000000000000" if len(sys.argv) < 4 else sys.argv[3]
     Runner(host, port, token).run()
