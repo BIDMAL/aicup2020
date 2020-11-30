@@ -15,6 +15,7 @@ TURRET = 9
 class MyStrategy:
 
     def get_action(self, player_view, debug_interface):
+
         max_dist = player_view.map_size**2
         my_id = player_view.my_id
         my_resources = None
@@ -39,6 +40,7 @@ class MyStrategy:
                 my_resources = player.resource
             else:
                 enemies.append(player.id)
+
         for entity in player_view.entities:
             if entity.entity_type == RESOURCE:
                 resources.append(entity)
@@ -68,10 +70,11 @@ class MyStrategy:
                 elif entity.entity_type in [WALL, HOUSE, BUILDER_BASE, MELEE_BASE, RANGED_BASE]:
                     enemy_buildings.append(entity)
 
-        my_unit_count = len(my_builder_units) + len(my_builder_units) + \
+        my_unit_count = len(my_builder_units) + \
             len(my_melee_units) + len(my_ranged_units)
-        my_food_count = 10 + len(my_houses)
+        my_food_count = 15 + 5*len(my_houses)
         my_unit_slots = my_food_count - my_unit_count
+        my_army = my_melee_units + my_ranged_units
 
         for artillery in my_ranged_bases:
             buildAction = None
@@ -93,6 +96,42 @@ class MyStrategy:
             entity_actions[base.id] = model.EntityAction(
                 None, buildAction, None, None)
 
+        for ship in my_army:
+            cur_pos = ship.position
+            moveAction = None
+            attackAction = None
+            dist = max_dist
+            move_target = None
+            attack_target = None
+            if len(my_army) < 6:
+                move_target = model.Vec2Int(
+                    my_ranged_bases[0].position.x+4, my_ranged_bases[0].position.y+4)
+            else:
+                if len(enemy_units) > 0:
+                    for unit in enemy_units:
+                        cur_dist = (cur_pos.x - unit.position.x)**2 + \
+                            (cur_pos.y - unit.position.y)**2
+                        if cur_dist < dist:
+                            dist = cur_dist
+                            move_target = unit.position
+                            attack_target = unit.id
+                            if dist < 2:
+                                break
+                elif len(enemy_buildings) > 0:
+                    for building in enemy_buildings:
+                        cur_dist = (cur_pos.x - building.position.x)**2 + \
+                            (cur_pos.y - building.position.y)**2
+                        if cur_dist < dist:
+                            dist = cur_dist
+                            move_target = building.position
+                            attack_target = building.id
+                            if dist < 2:
+                                break
+            moveAction = model.MoveAction(move_target, True, False)
+            attackAction = model.AttackAction(attack_target, None)
+            entity_actions[ship.id] = model.EntityAction(
+                moveAction, None, attackAction, None)
+
         for builder in my_builder_units:
             cur_pos = builder.position
             target_res = None
@@ -111,7 +150,7 @@ class MyStrategy:
                         if dist < 2:
                             break
             res_avails[target_res] = False
-            moveAction = model.MoveAction(target_position, True, True)
+            moveAction = model.MoveAction(target_position, True, False)
             attackAction = model.AttackAction(target_res, None)
             entity_actions[builder.id] = model.EntityAction(
                 moveAction, None, attackAction, None)
