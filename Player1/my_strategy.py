@@ -1,5 +1,6 @@
-# import model.
-from model import EntityType, Vec2Int, EntityAction, Action, BuildAction, MoveAction, AttackAction, DebugCommand
+from model import Action, EntityAction, BuildAction, MoveAction, AttackAction, RepairAction
+from model import DebugCommand, DebugData
+from model import EntityType, Vec2Int
 
 
 class Calc:
@@ -82,6 +83,11 @@ class Game:
                 elif entity.entity_type in [EntityType.WALL, EntityType.HOUSE, EntityType.BUILDER_BASE, EntityType.MELEE_BASE, EntityType.RANGED_BASE]:
                     self.enemy_buildings.append(entity)
 
+        self.my_unit_count = len(self.my_builder_units) + len(self.my_melee_units) + len(self.my_ranged_units)
+        self.my_food_count = 5*len(self.my_builder_bases) + 5*len(self.my_melee_bases) + 5*len(self.my_ranged_bases) + 5*len(self.my_houses)
+        self.my_unit_slots = self.my_food_count - self.my_unit_count
+        self.my_army = self.my_melee_units + self.my_ranged_units
+
 
 class MyStrategy:
 
@@ -91,34 +97,28 @@ class MyStrategy:
         game = Game(player_view.map_size, player_view.my_id, player_view.players)
         game.parse_entities(player_view.entities)
 
-        my_unit_count = len(game.my_builder_units) + len(game.my_melee_units) + len(game.my_ranged_units)
-        my_food_count = 15 + 5*len(game.my_houses)
-        my_unit_slots = my_food_count - my_unit_count
-        my_army = game.my_melee_units + game.my_ranged_units
-
         for my_ranged_base in game.my_ranged_bases:
             build_action = None
-            if my_unit_slots and game.my_resource_count > 29:
+            if game.my_unit_slots and game.my_resource_count > 29:
                 position = Vec2Int(my_ranged_base.position.x-1, my_ranged_base.position.y)
                 build_action = BuildAction(EntityType.BUILDER_UNIT, position)
-            entity_actions[my_ranged_base.id] = EntityAction(
-                None, build_action, None, None)
+            entity_actions[my_ranged_base.id] = EntityAction(None, build_action, None, None)
 
         for my_builder_base in game.my_builder_bases:
             build_action = None
-            if my_unit_slots and game.my_resource_count > 9:
+            if game.my_unit_slots and game.my_resource_count > 9:
                 position = Vec2Int(my_builder_base.position.x-1, my_builder_base.position.y)
                 build_action = BuildAction(EntityType.BUILDER_UNIT, position)
             entity_actions[my_builder_base.id] = EntityAction(None, build_action, None, None)
 
-        for ship in my_army:
+        for ship in game.my_army:
             cur_pos = ship.position
             move_action = None
             attack_action = None
             dist = game.map_size**2
             move_target = None
             attack_target = None
-            if len(my_army) < 6:
+            if len(game.my_army) < 6 and len(game.my_ranged_bases) > 0 and len(game.my_builder_units) > 0:
                 move_target = Vec2Int(game.my_ranged_bases[0].position.x+4, game.my_ranged_bases[0].position.y+4)
             else:
                 if len(game.enemy_units) > 0:
@@ -141,8 +141,7 @@ class MyStrategy:
                                 break
             move_action = MoveAction(move_target, True, False)
             attack_action = AttackAction(attack_target, None)
-            entity_actions[ship.id] = EntityAction(
-                move_action, None, attack_action, None)
+            entity_actions[ship.id] = EntityAction(move_action, None, attack_action, None)
 
         for builder in game.my_builder_units:
             cur_pos = builder.position
@@ -163,12 +162,13 @@ class MyStrategy:
             game.res_avails[target_res] = False
             move_action = MoveAction(target_position, True, False)
             attack_action = AttackAction(target_res, None)
-            entity_actions[builder.id] = EntityAction(
-                move_action, None, attack_action, None)
+            entity_actions[builder.id] = EntityAction(move_action, None, attack_action, None)
 
-        # print(f"entity_actions: {entity_actions}")
+        # debug_interface.send(DebugCommand.Add(DebugData.Log(f'My res: {game.my_resource_count}')))
+
         return Action(entity_actions)
 
     def debug_update(self, player_view, debug_interface):
         debug_interface.send(DebugCommand.Clear())
+        # debug_interface.send(DebugCommand.Add(DebugData.Log(f'My res: {self.game.my_resource_count}')))
         debug_interface.get_state()
