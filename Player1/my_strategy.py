@@ -37,6 +37,15 @@ class Calc:
         return dist, closest_target.id, closest_target.position
 
 
+class Map:
+    def __init__(self, input):
+        self.free_map = input[0]
+        self.def_spot = input[1]
+
+    def find_house_spot(self):
+        pass
+
+
 class Game:
 
     def __init__(self, map_size, my_id, players):
@@ -65,11 +74,13 @@ class Game:
         self.my_turrets = []
         self.enemy_units = []
         self.enemy_buildings = []
+        free_spots = [[True for _ in range(self.map_size)] for _ in range(self.map_size)]
 
         for entity in entities:
             if entity.entity_type == EntityType.RESOURCE:
                 self.resources.append(entity)
                 self.res_avails[entity.id] = True
+                free_spots[entity.position.x][entity.position.y] = False
             if entity.player_id == self.my_id:
                 if entity.entity_type == EntityType.WALL:
                     self.my_walls.append(entity)
@@ -90,10 +101,25 @@ class Game:
                 elif entity.entity_type == EntityType.TURRET:
                     self.my_turrets.append(entity)
             else:
-                if entity.entity_type in [EntityType.MELEE_UNIT, EntityType.RANGED_UNIT, EntityType.TURRET, EntityType.BUILDER_UNIT]:
+                if entity.entity_type in [EntityType.TURRET, EntityType.BUILDER_UNIT, EntityType.MELEE_UNIT, EntityType.RANGED_UNIT]:
                     self.enemy_units.append(entity)
                 elif entity.entity_type in [EntityType.WALL, EntityType.HOUSE, EntityType.BUILDER_BASE, EntityType.MELEE_BASE, EntityType.RANGED_BASE]:
                     self.enemy_buildings.append(entity)
+
+            if entity.entity_type in [EntityType.WALL, EntityType.BUILDER_UNIT, EntityType.MELEE_UNIT, EntityType.RANGED_UNIT]:
+                free_spots[entity.position.x][entity.position.y] = False
+            elif entity.entity_type == EntityType.TURRET:
+                for i in range(2):
+                    for j in range(2):
+                        free_spots[entity.position.x+i][entity.position.y+j] = False
+            elif entity.entity_type == EntityType.HOUSE:
+                for i in range(3):
+                    for j in range(3):
+                        free_spots[entity.position.x+i][entity.position.y+j] = False
+            elif entity.entity_type in [EntityType.BUILDER_BASE, EntityType.MELEE_BASE, EntityType.RANGED_BASE]:
+                for i in range(5):
+                    for j in range(5):
+                        free_spots[entity.position.x+i][entity.position.y+j] = False
 
         self.my_unit_count = len(self.my_builder_units) + len(self.my_melee_units) + len(self.my_ranged_units)
         self.my_food_count = 5*len(self.my_builder_bases) + 5*len(self.my_melee_bases) + 5*len(self.my_ranged_bases) + 5*len(self.my_houses)
@@ -119,6 +145,7 @@ class Game:
             else:
                 self.orientation = (5, 4)
                 self.def_point = (12, 12)
+        return free_spots, self.def_point
 
 
 class MyStrategy:
@@ -127,7 +154,7 @@ class MyStrategy:
 
         entity_actions = {}
         game = Game(player_view.map_size, player_view.my_id, player_view.players)
-        game.parse_entities(player_view.entities)
+        map = Map(game.parse_entities(player_view.entities))
 
         for my_ranged_base in game.my_ranged_bases:
             build_action = None
@@ -147,28 +174,35 @@ class MyStrategy:
             cur_pos = battle_ship.position
             move_action = None
             attack_action = None
-            dist = game.map_size**2
             move_target = None
             attack_target = None
             if len(game.my_army) < 5 and len(game.my_ranged_bases) > 0 and len(game.my_builder_units) > 0:
                 move_target = Vec2Int(game.def_point[0], game.def_point[1])
             else:
                 if len(game.enemy_units) > 0:
-                    dist, attack_target, move_target = Calc.find_closest(cur_pos, game.enemy_units, dist)
+                    dist, attack_target, move_target = Calc.find_closest(cur_pos, game.enemy_units, game.map_size**2)
                 elif len(game.enemy_buildings) > 0:
-                    dist, attack_target, move_target = Calc.find_closest(cur_pos, game.enemy_buildings, dist)
+                    dist, attack_target, move_target = Calc.find_closest(cur_pos, game.enemy_buildings, game.map_size**2)
 
             move_action = MoveAction(move_target, True, False)
             attack_action = AttackAction(attack_target, AutoAttack(3, []))
             entity_actions[battle_ship.id] = EntityAction(move_action, None, attack_action, None)
 
-        for builder in game.my_builder_units:
+        need_house = 0
+        if game.my_food_count < 1:
+            need_house = 1
+            builder = game.my_builder_units[0]
+            move_action = None
+            build_action = None
+            repair_action = None
+
+            entity_actions[builder.id] = EntityAction(move_action, None, attack_action, None)
+
+        for builder in game.my_builder_units[need_house:]:
             cur_pos = builder.position
-            target_res = None
             move_action = None
             attack_action = None
-            dist = game.map_size**2
-            dist, target_res, target_position = Calc.find_closest(cur_pos, game.resources, dist)
+            dist, target_res, target_position = Calc.find_closest(cur_pos, game.resources, game.map_size**2)
             game.res_avails[target_res] = False
             move_action = MoveAction(target_position, True, False)
             attack_action = AttackAction(target_res, None)
