@@ -1,4 +1,4 @@
-from model import Action, EntityAction, BuildAction, MoveAction, AttackAction, RepairAction
+from model import Action, EntityAction, BuildAction, MoveAction, AttackAction, RepairAction, AutoAttack
 from model import DebugCommand, DebugData
 from model import EntityType, Vec2Int
 
@@ -21,7 +21,7 @@ class Calc:
         return result
 
     @staticmethod
-    def find_closest(entity, targets):
+    def find_closest(cur_pos, targets, max_dist):
         return
 
 
@@ -99,29 +99,32 @@ class MyStrategy:
 
         for my_ranged_base in game.my_ranged_bases:
             build_action = None
+            debug_interface.send(DebugCommand.Add(DebugData.Log(f'my_unit_slots res: {game.my_unit_slots}')))
             if game.my_unit_slots and game.my_resource_count > 29:
+                debug_interface.send(DebugCommand.Add(DebugData.Log(f'SHould buid archer')))
                 position = Vec2Int(my_ranged_base.position.x-1, my_ranged_base.position.y)
-                build_action = BuildAction(EntityType.BUILDER_UNIT, position)
+                build_action = BuildAction(EntityType.RANGED_UNIT, position)
             entity_actions[my_ranged_base.id] = EntityAction(None, build_action, None, None)
 
         for my_builder_base in game.my_builder_bases:
             build_action = None
-            if game.my_unit_slots and game.my_resource_count > 9:
+            if game.my_unit_slots and game.my_resource_count > 9 and len(game.my_builder_units) < 5:
                 position = Vec2Int(my_builder_base.position.x-1, my_builder_base.position.y)
                 build_action = BuildAction(EntityType.BUILDER_UNIT, position)
             entity_actions[my_builder_base.id] = EntityAction(None, build_action, None, None)
 
-        for ship in game.my_army:
-            cur_pos = ship.position
+        for battle_ship in game.my_army:
+            cur_pos = battle_ship.position
             move_action = None
             attack_action = None
             dist = game.map_size**2
             move_target = None
             attack_target = None
-            if len(game.my_army) < 6 and len(game.my_ranged_bases) > 0 and len(game.my_builder_units) > 0:
+            if len(game.my_army) < 5 and len(game.my_ranged_bases) > 0 and len(game.my_builder_units) > 0:
                 move_target = Vec2Int(game.my_ranged_bases[0].position.x+4, game.my_ranged_bases[0].position.y+4)
             else:
                 if len(game.enemy_units) > 0:
+
                     for unit in game.enemy_units:
                         cur_dist = (cur_pos.x - unit.position.x)**2 + (cur_pos.y - unit.position.y)**2
                         if cur_dist < dist:
@@ -140,8 +143,8 @@ class MyStrategy:
                             if dist < 2:
                                 break
             move_action = MoveAction(move_target, True, False)
-            attack_action = AttackAction(attack_target, None)
-            entity_actions[ship.id] = EntityAction(move_action, None, attack_action, None)
+            attack_action = AttackAction(attack_target, AutoAttack(3, []))
+            entity_actions[battle_ship.id] = EntityAction(move_action, None, attack_action, None)
 
         for builder in game.my_builder_units:
             cur_pos = builder.position
