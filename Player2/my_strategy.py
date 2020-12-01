@@ -99,9 +99,7 @@ class MyStrategy:
 
         for my_ranged_base in game.my_ranged_bases:
             build_action = None
-            debug_interface.send(DebugCommand.Add(DebugData.Log(f'my_unit_slots res: {game.my_unit_slots}')))
             if game.my_unit_slots and game.my_resource_count > 29:
-                debug_interface.send(DebugCommand.Add(DebugData.Log(f'SHould buid archer')))
                 position = Vec2Int(my_ranged_base.position.x-1, my_ranged_base.position.y)
                 build_action = BuildAction(EntityType.RANGED_UNIT, position)
             entity_actions[my_ranged_base.id] = EntityAction(None, build_action, None, None)
@@ -167,11 +165,8 @@ class MyStrategy:
             attack_action = AttackAction(target_res, None)
             entity_actions[builder.id] = EntityAction(move_action, None, attack_action, None)
 
-        # debug_interface.send(DebugCommand.Add(DebugData.Log(f'My res: {game.my_resource_count}')))
-
         return Action(entity_actions)
 
     def debug_update(self, player_view, debug_interface):
         debug_interface.send(DebugCommand.Clear())
-        # debug_interface.send(DebugCommand.Add(DebugData.Log(f'My res: {self.game.my_resource_count}')))
         debug_interface.get_state()
