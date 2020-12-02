@@ -96,25 +96,17 @@ class Map:
     def find_building_spot(self, size):
         start_x = 0
         start_y = 0
-        end_x = self.map_size - size
-        end_y = self.map_size - size
         increment_x = 1
         increment_y = 1
         half = self.map_size // 2
         if self.def_point is not None:
             if self.def_point[0] > half:
                 start_x = self.map_size - size
-                end_x = 0
                 increment_x = -1
             if self.def_point[0] > half:
                 start_y = self.map_size - size
-                end_y = 0
                 increment_y = -1
-        '''
-        for z in range(10):
-            for i in range(z):
-                print(ll[i][z], ll[z][i], end=' ')
-            print(ll[z][z])'''
+
         for z in range(self.map_size - size):
             for xy in range(z):
                 x = start_x + increment_x * z
@@ -310,7 +302,7 @@ class MyStrategy:
 
         # turrets
         for turret in game.my_turrets:
-            attack_action = AttackAction(attack_target, AutoAttack(5, []))
+            attack_action = AttackAction(None, AutoAttack(5, []))
             entity_actions[turret.id] = EntityAction(None, None, attack_action, None)
 
         # calcs for house repair
