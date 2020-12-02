@@ -3,7 +3,6 @@ from model import DebugCommand, DebugData
 from model import EntityType, Vec2Int
 # import time
 
-# TODO 2nd barracks
 # TODO res_find - no other units on move_spot
 # TODO building positions - have space inbetween - new free_spot_map with wider occupied zones
 
