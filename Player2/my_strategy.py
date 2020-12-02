@@ -2,7 +2,7 @@ from model import Action, EntityAction, BuildAction, MoveAction, AttackAction, R
 from model import DebugCommand, DebugData
 from model import EntityType, Vec2Int
 
-
+# TODO 2nd barracks
 # TODO res_find - no other units on move_spot
 # TODO building positions - have space inbetween - new free_spot_map with wider occupied zones
 
@@ -272,15 +272,27 @@ class Game:
             else:
                 self.orientation = (5, 4)
                 self.def_point = (12, 12)
+
+        for entity in self.my_prod:
+            free_spots[entity.position.x+self.orientation[0]][entity.position.y+self.orientation[1]] = False
+
         return free_spots, self.def_point
 
 
 class MyStrategy:
 
     def get_action(self, player_view, debug_interface):
+        # times = []
+        # tstmp = time.time()
+
         entity_actions = {}
         game = Game(player_view.map_size, player_view.my_id, player_view.players)
         damap = Map(game.parse_entities(player_view.entities))
+
+        # debug_interface.send(DebugCommand.Add(DebugData.Log(f'Total res: {len(game.resources)}')))
+        # debug_interface.send(DebugCommand.Add(DebugData.Log(f'Obt res  : {len(game.obtainable_resources)}')))
+        # times.append(time.time()-tstmp)
+        # tstmp = time.time()
 
         # ranged bases
         for my_ranged_base in game.my_ranged_bases:
@@ -297,6 +309,8 @@ class MyStrategy:
                 position = Vec2Int(my_builder_base.position.x+game.orientation[0], my_builder_base.position.y+game.orientation[1])
                 build_action = BuildAction(EntityType.BUILDER_UNIT, position)
             entity_actions[my_builder_base.id] = EntityAction(None, build_action, None, None)
+        # times.append(time.time()-tstmp)
+        # tstmp = time.time()
 
         # army
         try:
@@ -320,25 +334,55 @@ class MyStrategy:
                 entity_actions[battle_ship.id] = EntityAction(move_action, None, attack_action, None)
         except:
             pass
+        # times.append(time.time()-tstmp)
 
         # turrets
         for turret in game.my_turrets:
             attack_action = AttackAction(None, AutoAttack(5, []))
             entity_actions[turret.id] = EntityAction(None, None, attack_action, None)
 
+        # tstmp = time.time()
         # calcs for house repair
         house_to_repair = None
+        rbarracks_to_repair = None
         for house in game.my_houses:
             if not house.active:
                 house_to_repair = house
                 break
-        dedicated_builder = 0
+        for rbarracks in game.my_ranged_bases:
+            if not rbarracks.active:
+                rbarracks_to_repair = rbarracks
+                break
+        dedicated_house_builder = 0
+        dedicated_rbarracks_builder = 0
         if game.my_unit_count >= 15:
-            dedicated_builder = 1
+            dedicated_house_builder = 1
 
-        # build a house
+        # building a rbarracks
+        if (rbarracks_to_repair is not None) or (len(game.my_builder_units) > 20 and len(game.my_ranged_bases) == 1) or (game.my_resource_count > 700 and len(game.my_ranged_bases) == 2):
+            dedicated_rbarracks_builder = 1
+            builder = game.my_builder_units[1]
+            move_spot = None
+            move_action = None
+            build_action = None
+            repair_action = None
+            if rbarracks_to_repair is not None:
+                repair_action = RepairAction(rbarracks_to_repair.id)
+                move_spot = damap.find_move_spot(builder.position, rbarracks_to_repair.position, 5)
+                if move_spot is not None:
+                    move_action = MoveAction(move_spot, True, False)
+                entity_actions[builder.id] = EntityAction(move_action, None, None, repair_action)
+            else:
+                rbarracks_spot = damap.find_building_spot(6)
+                if rbarracks_spot is not None:
+                    build_action = BuildAction(EntityType.RANGED_BASE, rbarracks_spot)
+                    move_spot = damap.find_move_spot(builder.position, rbarracks_spot, 5)
+                    if move_spot is not None:
+                        move_action = MoveAction(move_spot, True, False)
+                    entity_actions[builder.id] = EntityAction(move_action, build_action, None, None)
+
         if (house_to_repair is not None) or (game.free_unit_slots <= 1 and len(game.my_builder_units)):
-            dedicated_builder = 1
+            dedicated_house_builder = 1
             builder = game.my_builder_units[0]
             move_spot = None
             move_action = None
@@ -346,7 +390,7 @@ class MyStrategy:
             repair_action = None
             if house_to_repair is not None:
                 repair_action = RepairAction(house_to_repair.id)
-                move_spot = damap.find_move_spot(builder.position, house_to_repair.position, 2)
+                move_spot = damap.find_move_spot(builder.position, house_to_repair.position, 3)
                 if move_spot is not None:
                     move_action = MoveAction(move_spot, True, False)
                 entity_actions[builder.id] = EntityAction(move_action, None, None, repair_action)
@@ -359,8 +403,7 @@ class MyStrategy:
                         move_action = MoveAction(move_spot, True, False)
                     entity_actions[builder.id] = EntityAction(move_action, build_action, None, None)
 
-        # gather resources
-        for builder in game.my_builder_units[dedicated_builder:]:
+        for builder in game.my_builder_units[dedicated_house_builder+dedicated_rbarracks_builder:]:
             cur_pos = builder.position
             move_action = None
             attack_action = None
