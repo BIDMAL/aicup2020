@@ -338,7 +338,7 @@ class MyStrategy:
             cur_pos = builder.position
             move_action = None
             attack_action = None
-            dist, target_res, target_position = Calc.find_closest(cur_pos, game.resources, game.map_size**2)
+            dist, target_res, target_position = Calc.find_closest(cur_pos, game.resources, game.map_size**2, game.res_avails)
             game.res_avails[target_res] = False
             move_action = MoveAction(target_position, True, False)
             attack_action = AttackAction(target_res, None)
@@ -348,5 +348,5 @@ class MyStrategy:
 
     def debug_update(self, player_view, debug_interface):
         debug_interface.send(DebugCommand.Clear())
-        # debug_interface.send(DebugCommand.Add(DebugData.Log(f'My res: {self.game.my_resource_count}')))
+        # debug_interface.send(DebugCommand.Add(DebugData.Log(f'My res: {game.my_resource_count}')))
         debug_interface.get_state()

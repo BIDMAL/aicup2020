@@ -336,7 +336,7 @@ class MyStrategy:
             cur_pos = builder.position
             move_action = None
             attack_action = None
-            dist, target_res, target_position = Calc.find_closest(cur_pos, game.resources, game.map_size**2)
+            dist, target_res, target_position = Calc.find_closest(cur_pos, game.resources, game.map_size**2, game.res_avails)
             game.res_avails[target_res] = False
             move_action = MoveAction(target_position, True, False)
             attack_action = AttackAction(target_res, None)
