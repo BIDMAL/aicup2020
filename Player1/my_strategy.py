@@ -1,6 +1,7 @@
 from model import Action, EntityAction, BuildAction, MoveAction, AttackAction, RepairAction, AutoAttack
 from model import DebugCommand, DebugData
 from model import EntityType, Vec2Int
+import time
 
 
 class Calc:
@@ -203,12 +204,12 @@ class Game:
                 elif entity.entity_type == EntityType.TURRET:
                     self.my_turrets.append(entity)
             else:
-                if entity.entity_type in [EntityType.TURRET, EntityType.BUILDER_UNIT, EntityType.MELEE_UNIT, EntityType.RANGED_UNIT]:
+                if entity.entity_type in {EntityType.TURRET, EntityType.BUILDER_UNIT, EntityType.MELEE_UNIT, EntityType.RANGED_UNIT}:
                     self.enemy_units.append(entity)
-                elif entity.entity_type in [EntityType.WALL, EntityType.HOUSE, EntityType.BUILDER_BASE, EntityType.MELEE_BASE, EntityType.RANGED_BASE]:
+                elif entity.entity_type in {EntityType.WALL, EntityType.HOUSE, EntityType.BUILDER_BASE, EntityType.MELEE_BASE, EntityType.RANGED_BASE}:
                     self.enemy_buildings.append(entity)
 
-            if entity.entity_type in [EntityType.WALL, EntityType.BUILDER_UNIT, EntityType.MELEE_UNIT, EntityType.RANGED_UNIT]:
+            if entity.entity_type in {EntityType.WALL, EntityType.BUILDER_UNIT, EntityType.MELEE_UNIT, EntityType.RANGED_UNIT}:
                 free_spots[entity.position.x][entity.position.y] = False
             elif entity.entity_type == EntityType.TURRET:
                 for i in range(2):
@@ -218,7 +219,7 @@ class Game:
                 for i in range(3):
                     for j in range(3):
                         free_spots[entity.position.x+i][entity.position.y+j] = False
-            elif entity.entity_type in [EntityType.BUILDER_BASE, EntityType.MELEE_BASE, EntityType.RANGED_BASE]:
+            elif entity.entity_type in {EntityType.BUILDER_BASE, EntityType.MELEE_BASE, EntityType.RANGED_BASE}:
                 for i in range(5):
                     for j in range(5):
                         free_spots[entity.position.x+i][entity.position.y+j] = False
@@ -256,10 +257,15 @@ class Game:
 class MyStrategy:
 
     def get_action(self, player_view, debug_interface):
+        times = []
+        tstmp = time.time()
 
         entity_actions = {}
         game = Game(player_view.map_size, player_view.my_id, player_view.players)
         damap = Map(game.parse_entities(player_view.entities))
+
+        times.append(time.time()-tstmp)
+        tstmp = time.time()
 
         # ranged bases
         for my_ranged_base in game.my_ranged_bases:
@@ -276,7 +282,8 @@ class MyStrategy:
                 position = Vec2Int(my_builder_base.position.x+game.orientation[0], my_builder_base.position.y+game.orientation[1])
                 build_action = BuildAction(EntityType.BUILDER_UNIT, position)
             entity_actions[my_builder_base.id] = EntityAction(None, build_action, None, None)
-
+        times.append(time.time()-tstmp)
+        tstmp = time.time()
         # army
         try:
             for battle_ship in game.my_army:
@@ -299,12 +306,14 @@ class MyStrategy:
                 entity_actions[battle_ship.id] = EntityAction(move_action, None, attack_action, None)
         except:
             pass
+        times.append(time.time()-tstmp)
 
         # turrets
         for turret in game.my_turrets:
             attack_action = AttackAction(None, AutoAttack(5, []))
             entity_actions[turret.id] = EntityAction(None, None, attack_action, None)
 
+        tstmp = time.time()
         # calcs for house repair
         house_to_repair = None
         for house in game.my_houses:
@@ -337,7 +346,8 @@ class MyStrategy:
                     if move_spot is not None:
                         move_action = MoveAction(move_spot, True, False)
                     entity_actions[builder.id] = EntityAction(move_action, build_action, None, None)
-
+        times.append(time.time()-tstmp)
+        tstmp = time.time()
         # gather resources
         for builder in game.my_builder_units[dedicated_builder:]:
             cur_pos = builder.position
@@ -348,6 +358,13 @@ class MyStrategy:
             move_action = MoveAction(target_position, True, False)
             attack_action = AttackAction(target_res, None)
             entity_actions[builder.id] = EntityAction(move_action, None, attack_action, None)
+        times.append(time.time()-tstmp)
+
+        debug_interface.send(DebugCommand.Add(DebugData.Log(f'Init     : {times[0]*1000}')))
+        debug_interface.send(DebugCommand.Add(DebugData.Log(f'Bases    : {times[1]*1000}')))
+        debug_interface.send(DebugCommand.Add(DebugData.Log(f'Army     : {times[2]*1000}')))
+        debug_interface.send(DebugCommand.Add(DebugData.Log(f'Houses   : {times[3]*1000}')))
+        debug_interface.send(DebugCommand.Add(DebugData.Log(f'Resourses: {times[4]*1000}')))
 
         return Action(entity_actions)
 
