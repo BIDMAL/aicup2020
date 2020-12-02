@@ -203,12 +203,12 @@ class Game:
                 elif entity.entity_type == EntityType.TURRET:
                     self.my_turrets.append(entity)
             else:
-                if entity.entity_type in [EntityType.TURRET, EntityType.BUILDER_UNIT, EntityType.MELEE_UNIT, EntityType.RANGED_UNIT]:
+                if entity.entity_type in {EntityType.TURRET, EntityType.BUILDER_UNIT, EntityType.MELEE_UNIT, EntityType.RANGED_UNIT}:
                     self.enemy_units.append(entity)
-                elif entity.entity_type in [EntityType.WALL, EntityType.HOUSE, EntityType.BUILDER_BASE, EntityType.MELEE_BASE, EntityType.RANGED_BASE]:
+                elif entity.entity_type in {EntityType.WALL, EntityType.HOUSE, EntityType.BUILDER_BASE, EntityType.MELEE_BASE, EntityType.RANGED_BASE}:
                     self.enemy_buildings.append(entity)
 
-            if entity.entity_type in [EntityType.WALL, EntityType.BUILDER_UNIT, EntityType.MELEE_UNIT, EntityType.RANGED_UNIT]:
+            if entity.entity_type in {EntityType.WALL, EntityType.BUILDER_UNIT, EntityType.MELEE_UNIT, EntityType.RANGED_UNIT}:
                 free_spots[entity.position.x][entity.position.y] = False
             elif entity.entity_type == EntityType.TURRET:
                 for i in range(2):
@@ -218,10 +218,28 @@ class Game:
                 for i in range(3):
                     for j in range(3):
                         free_spots[entity.position.x+i][entity.position.y+j] = False
-            elif entity.entity_type in [EntityType.BUILDER_BASE, EntityType.MELEE_BASE, EntityType.RANGED_BASE]:
+            elif entity.entity_type in {EntityType.BUILDER_BASE, EntityType.MELEE_BASE, EntityType.RANGED_BASE}:
                 for i in range(5):
                     for j in range(5):
                         free_spots[entity.position.x+i][entity.position.y+j] = False
+
+        self.obtainable_resources = []
+        res_coords = set()
+        for res in self.resources:
+            res_coords.add((res.position.x, res.position.y))
+        for res in self.resources:
+            coord = (res.position.x, res.position.y)
+            addable = False
+            if (coord[0]-1 >= 0) and (coord[0]-1, coord[1]) not in res_coords:
+                addable = True
+            elif (coord[0]+1 < self.map_size) and (coord[0]+1, coord[1]) not in res_coords:
+                addable = True
+            elif (coord[1]-1 >= 0) and (coord[0], coord[1]-1) not in res_coords:
+                addable = True
+            elif (coord[1]+1 < self.map_size) and (coord[0], coord[1]+1) not in res_coords:
+                addable = True
+            if addable:
+                self.obtainable_resources.append(res)
 
         self.my_unit_count = len(self.my_builder_units) + len(self.my_melee_units) + len(self.my_ranged_units)
         self.my_food_prod = self.my_builder_bases + self.my_melee_bases + self.my_ranged_bases + self.my_houses
@@ -343,7 +361,7 @@ class MyStrategy:
             cur_pos = builder.position
             move_action = None
             attack_action = None
-            dist, target_res, target_position = Calc.find_closest(cur_pos, game.resources, game.map_size**2, game.res_avails)
+            dist, target_res, target_position = Calc.find_closest(cur_pos, game.obtainable_resources, game.map_size**2, game.res_avails)
             game.res_avails[target_res] = False
             move_action = MoveAction(target_position, True, False)
             attack_action = AttackAction(target_res, None)
