@@ -269,6 +269,7 @@ class MyStrategy:
         game = Game(player_view.map_size, player_view.my_id, player_view.players)
         damap = Map(game.parse_entities(player_view.entities))
 
+        # ranged bases
         for my_ranged_base in game.my_ranged_bases:
             build_action = None
             if game.free_unit_slots and game.my_resource_count >= 30:
@@ -276,31 +277,43 @@ class MyStrategy:
                 build_action = BuildAction(EntityType.RANGED_UNIT, position)
             entity_actions[my_ranged_base.id] = EntityAction(None, build_action, None, None)
 
+        # main base
         for my_builder_base in game.my_builder_bases:
             build_action = None
-            if game.free_unit_slots and game.my_resource_count >= 10 and len(game.my_builder_units) <= game.my_food_count // 3:
+            if game.free_unit_slots and (game.my_resource_count >= 10) and (len(game.my_builder_units) < len(game.resources) // 2) and (len(game.my_builder_units) <= 60) and (len(game.my_builder_units) <= game.my_food_count // 2):
                 position = Vec2Int(my_builder_base.position.x+game.orientation[0], my_builder_base.position.y+game.orientation[1])
                 build_action = BuildAction(EntityType.BUILDER_UNIT, position)
             entity_actions[my_builder_base.id] = EntityAction(None, build_action, None, None)
 
-        for battle_ship in game.my_army:
-            cur_pos = battle_ship.position
-            move_action = None
-            attack_action = None
-            move_target = None
-            attack_target = None
-            if len(game.my_army) < 5 and len(game.my_ranged_bases) > 0 and len(game.my_builder_units) > 0:
-                move_target = Vec2Int(game.def_point[0], game.def_point[1])
-            else:
-                if len(game.enemy_units) > 0:
-                    dist, attack_target, move_target = Calc.find_closest(cur_pos, game.enemy_units, game.map_size**2)
-                elif len(game.enemy_buildings) > 0:
-                    dist, attack_target, move_target = Calc.find_closest(cur_pos, game.enemy_buildings, game.map_size**2)
-            if move_target is not None:
-                move_action = MoveAction(move_target, True, False)
-                attack_action = AttackAction(attack_target, AutoAttack(3, []))
-            entity_actions[battle_ship.id] = EntityAction(move_action, None, attack_action, None)
+        # army
+        try:
+            for battle_ship in game.my_army:
+                cur_pos = battle_ship.position
+                move_action = None
+                attack_action = None
+                move_target = None
+                attack_target = None
 
+                if len(game.my_army) <= 8 and len(game.my_ranged_bases) > 0 and len(game.my_builder_units) > 0:
+                    move_target = Vec2Int(game.def_point[0], game.def_point[1])
+                else:
+                    if len(game.enemy_units) > 0:
+                        dist, attack_target, move_target = Calc.find_closest(cur_pos, game.enemy_units, game.map_size**2)
+                    elif len(game.enemy_buildings) > 0:
+                        dist, attack_target, move_target = Calc.find_closest(cur_pos, game.enemy_buildings, game.map_size**2)
+                if move_target is not None:
+                    move_action = MoveAction(move_target, True, False)
+                    attack_action = AttackAction(attack_target, AutoAttack(3, []))
+                entity_actions[battle_ship.id] = EntityAction(move_action, None, attack_action, None)
+        except:
+            pass
+
+        # turrets
+        for turret in game.my_turrets:
+            attack_action = AttackAction(attack_target, AutoAttack(5, []))
+            entity_actions[turret.id] = EntityAction(None, None, attack_action, None)
+
+        # calcs for house repair
         house_to_repair = None
         for house in game.my_houses:
             if not house.active:
@@ -310,6 +323,7 @@ class MyStrategy:
         if game.my_unit_count >= 15:
             dedicated_builder = 1
 
+        # build a house
         if (house_to_repair is not None) or (game.free_unit_slots <= 1 and len(game.my_builder_units)):
             dedicated_builder = 1
             builder = game.my_builder_units[0]
@@ -328,12 +342,11 @@ class MyStrategy:
                 if house_spot is not None:
                     build_action = BuildAction(EntityType.HOUSE, house_spot)
                     move_spot = damap.find_move_spot(builder.position, house_spot, 3)
-                    # debug_interface.send(DebugCommand.Add(DebugData.Log(f'house_spott: {house_spot}')))
-                    # debug_interface.send(DebugCommand.Add(DebugData.Log(f'move_spot: {move_spot}')))
                     if move_spot is not None:
                         move_action = MoveAction(move_spot, True, False)
                     entity_actions[builder.id] = EntityAction(move_action, build_action, None, None)
 
+        # gather resources
         for builder in game.my_builder_units[dedicated_builder:]:
             cur_pos = builder.position
             move_action = None
