@@ -403,15 +403,18 @@ class MyStrategy:
                         move_action = MoveAction(move_spot, True, False)
                     entity_actions[builder.id] = EntityAction(move_action, build_action, None, None)
 
-        for builder in game.my_builder_units[dedicated_house_builder+dedicated_rbarracks_builder:]:
-            cur_pos = builder.position
-            move_action = None
-            attack_action = None
-            dist, target_res, target_position = Calc.find_closest(cur_pos, game.obtainable_resources, game.map_size**2, game.res_avails)
-            game.res_avails[target_res] = False
-            move_action = MoveAction(target_position, True, False)
-            attack_action = AttackAction(target_res, None)
-            entity_actions[builder.id] = EntityAction(move_action, None, attack_action, None)
+        try:
+            for builder in game.my_builder_units[dedicated_house_builder+dedicated_rbarracks_builder:]:
+                cur_pos = builder.position
+                move_action = None
+                attack_action = None
+                dist, target_res, target_position = Calc.find_closest(cur_pos, game.obtainable_resources, game.map_size**2, game.res_avails)
+                game.res_avails[target_res] = False
+                move_action = MoveAction(target_position, True, False)
+                attack_action = AttackAction(target_res, None)
+                entity_actions[builder.id] = EntityAction(move_action, None, attack_action, None)
+        except:
+            pass
 
         return Action(entity_actions)
 
