@@ -224,6 +224,24 @@ class Game:
                     for j in range(5):
                         free_spots[entity.position.x+i][entity.position.y+j] = False
 
+        self.obtainable_resources = []
+        res_coords = set()
+        for res in self.resources:
+            res_coords.add((res.position.x, res.position.y))
+        for res in self.resources:
+            coord = (res.position.x, res.position.y)
+            addable = False
+            if (coord[0]-1 >= 0) and (coord[0]-1, coord[1]) not in res_coords:
+                addable = True
+            elif (coord[0]+1 < self.map_size) and (coord[0]+1, coord[1]) not in res_coords:
+                addable = True
+            elif (coord[1]-1 >= 0) and (coord[0], coord[1]-1) not in res_coords:
+                addable = True
+            elif (coord[1]+1 < self.map_size) and (coord[0], coord[1]+1) not in res_coords:
+                addable = True
+            if addable:
+                self.obtainable_resources.append(res)
+
         self.my_unit_count = len(self.my_builder_units) + len(self.my_melee_units) + len(self.my_ranged_units)
         self.my_food_prod = self.my_builder_bases + self.my_melee_bases + self.my_ranged_bases + self.my_houses
         self.my_food_prod = [entity for entity in self.my_food_prod if entity.active]
@@ -264,6 +282,8 @@ class MyStrategy:
         game = Game(player_view.map_size, player_view.my_id, player_view.players)
         damap = Map(game.parse_entities(player_view.entities))
 
+        debug_interface.send(DebugCommand.Add(DebugData.Log(f'Total res: {len(game.resources)}')))
+        debug_interface.send(DebugCommand.Add(DebugData.Log(f'Obt res  : {len(game.obtainable_resources)}')))
         times.append(time.time()-tstmp)
         tstmp = time.time()
 
@@ -284,6 +304,7 @@ class MyStrategy:
             entity_actions[my_builder_base.id] = EntityAction(None, build_action, None, None)
         times.append(time.time()-tstmp)
         tstmp = time.time()
+
         # army
         try:
             for battle_ship in game.my_army:
@@ -348,12 +369,13 @@ class MyStrategy:
                     entity_actions[builder.id] = EntityAction(move_action, build_action, None, None)
         times.append(time.time()-tstmp)
         tstmp = time.time()
+
         # gather resources
         for builder in game.my_builder_units[dedicated_builder:]:
             cur_pos = builder.position
             move_action = None
             attack_action = None
-            dist, target_res, target_position = Calc.find_closest(cur_pos, game.resources, game.map_size**2, game.res_avails)
+            dist, target_res, target_position = Calc.find_closest(cur_pos, game.obtainable_resources, game.map_size**2, game.res_avails)
             game.res_avails[target_res] = False
             move_action = MoveAction(target_position, True, False)
             attack_action = AttackAction(target_res, None)
