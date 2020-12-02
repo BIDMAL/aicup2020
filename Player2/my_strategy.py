@@ -3,6 +3,10 @@ from model import DebugCommand, DebugData
 from model import EntityType, Vec2Int
 
 
+# TODO res_find - no other units on move_spot
+# TODO building positions - have space inbetween - new free_spot_map with wider occupied zones
+
+
 class Calc:
 
     @staticmethod
@@ -107,8 +111,8 @@ class Map:
                 start_y = self.map_size - size
                 increment_y = -1
 
-        for z in range(self.map_size - size):
-            for xy in range(z):
+        for z in range(0, self.map_size - size, size+1):
+            for xy in range(0, z, size+1):
                 x = start_x + increment_x * z
                 y = start_y + increment_y * xy
                 available = True
@@ -274,7 +278,6 @@ class Game:
 class MyStrategy:
 
     def get_action(self, player_view, debug_interface):
-
         entity_actions = {}
         game = Game(player_view.map_size, player_view.my_id, player_view.players)
         damap = Map(game.parse_entities(player_view.entities))
@@ -290,7 +293,7 @@ class MyStrategy:
         # main base
         for my_builder_base in game.my_builder_bases:
             build_action = None
-            if game.free_unit_slots and (game.my_resource_count >= 10) and (len(game.my_builder_units) < len(game.resources) // 2) and (len(game.my_builder_units) <= 60) and (len(game.my_builder_units) <= game.my_food_count // 2):
+            if game.free_unit_slots and (game.my_resource_count >= 10) and (len(game.my_builder_units) < len(game.resources) // 2) and (len(game.my_builder_units) <= 31) and (len(game.my_builder_units) <= game.my_food_count // 2):
                 position = Vec2Int(my_builder_base.position.x+game.orientation[0], my_builder_base.position.y+game.orientation[1])
                 build_action = BuildAction(EntityType.BUILDER_UNIT, position)
             entity_actions[my_builder_base.id] = EntityAction(None, build_action, None, None)
