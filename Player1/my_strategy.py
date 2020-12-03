@@ -3,6 +3,7 @@ from model import DebugCommand, DebugData
 from model import EntityType, Vec2Int
 import time
 
+# TODO build melee_base if none
 # TODO workers up to 15, two houses at a time
 # TODO implemetn NEED_HOUSE trigger and one more dedicated builder
 # TODO stop searching by attack_range, not const 1
