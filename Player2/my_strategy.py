@@ -273,6 +273,11 @@ class Game:
                 self.orientation = (5, 4)
                 self.def_point = (12, 12)
 
+        try:
+            self.obtainable_resources.sort(key=lambda res: (res.position.x-self.def_point[0])**2 + (res.position.y-self.def_point[1])**2)
+        except:
+            pass
+
         for entity in self.my_prod:
             self.free_spots[entity.position.x+self.orientation[0]][entity.position.y+self.orientation[1]] = False
 
