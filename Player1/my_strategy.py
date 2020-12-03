@@ -7,7 +7,7 @@ import time
 # TODO stop searching by attack_range, not const 1
 # TODO early def 19252
 # TODO break walls?
-# TODO res_find - no other units on move_spot
+# TODO self.attack_mode rly needed?
 
 
 class Calc:
