@@ -3,7 +3,6 @@ from model import DebugCommand, DebugData
 from model import EntityType, Vec2Int
 import time
 
-# TODO improve "Resources" time = 10, "Init" time = 5
 # TODO stop searching by attack_range, not const 1
 # TODO early def 19252
 # TODO break walls?
@@ -28,7 +27,7 @@ class Calc:
         return result
 
     @staticmethod
-    def find_closest(cur_pos, targets, max_dist, available=None):
+    def find_closest(cur_pos, targets, max_dist, available=None, dist_limit=1):
         dist = max_dist
         closest_target = None
         for target in targets:
@@ -39,7 +38,7 @@ class Calc:
             if cur_dist < dist:
                 dist = cur_dist
                 closest_target = target
-                if dist < 2:
+                if dist <= 1:
                     break
         return dist, closest_target.id, closest_target.position
 
@@ -296,6 +295,7 @@ class MyStrategy:
     def __init__(self):
         self.times = []
         self.workers = []
+        self.attack_mode = False
 
     def get_action(self, player_view, debug_interface):
         self.times = []
@@ -345,6 +345,11 @@ class MyStrategy:
 
         # army
         try:
+            if len(game.my_army) < 5 and len(game.my_ranged_bases) > 0 and len(game.my_builder_units) > 0:
+                self.attack_mode = False
+            elif len(game.my_army) > 10:
+                self.attack_mode = True
+
             for battle_ship in game.my_army:
                 cur_pos = battle_ship.position
                 move_action = None
@@ -352,7 +357,7 @@ class MyStrategy:
                 move_target = None
                 attack_target = None
 
-                if len(game.my_army) <= 8 and len(game.my_ranged_bases) > 0 and len(game.my_builder_units) > 0:
+                if not self.attack_mode:
                     move_target = Vec2Int(game.def_point[0], game.def_point[1])
                 else:
                     if len(game.enemy_units) > 0:
@@ -360,7 +365,7 @@ class MyStrategy:
                     elif len(game.enemy_buildings) > 0:
                         dist, attack_target, move_target = Calc.find_closest(cur_pos, game.enemy_buildings, game.map_size**2)
                 if move_target is not None:
-                    move_action = MoveAction(move_target, True, False)
+                    move_action = MoveAction(move_target, True, True)
                     attack_action = AttackAction(attack_target, AutoAttack(20, []))
                 entity_actions[battle_ship.id] = EntityAction(move_action, None, attack_action, None)
         except:
