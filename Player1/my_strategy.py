@@ -3,6 +3,7 @@ from model import DebugCommand, DebugData
 from model import EntityType, Vec2Int
 import time
 
+# TODO improve "Resources" time = 10, "Init" time = 5
 # TODO stop searching by attack_range, not const 1
 # TODO early def 19252
 # TODO break walls?
@@ -231,6 +232,8 @@ class Game:
                     for j in range(5):
                         self.free_spots[entity.position.x+i][entity.position.y+j] = False
 
+        self.my_builder_units.sort(key=lambda probe: probe.id)
+
         self.obtainable_resources = []
         res_coords = set()
         for res in self.resources:
@@ -285,43 +288,54 @@ class Game:
 
 class MyStrategy:
 
+    def __init__(self):
+        self.times = []
+        self.workers = []
+
     def get_action(self, player_view, debug_interface):
-        times = []
+        self.times = []
+        self.workers = []
         tstmp = time.time()
 
         entity_actions = {}
         game = Game(player_view.map_size, player_view.my_id, player_view.players)
         damap = Map(game.parse_entities(player_view.entities))
 
+        for worker in game.my_builder_units:
+            self.workers.append(worker.id)
         # debug_interface.send(DebugCommand.Add(DebugData.Log(f'Total res: {len(game.resources)}')))
         # debug_interface.send(DebugCommand.Add(DebugData.Log(f'Obt res  : {len(game.obtainable_resources)}')))
-        times.append(time.time()-tstmp)
+        self.times.append(time.time()-tstmp)
         tstmp = time.time()
 
-        # melee bases
-        for my_melee_base in game.my_melee_bases:
-            build_action = None
-            if game.free_unit_slots > 1 and game.my_resource_count >= 20 and len(game.my_ranged_units) > len(game.my_melee_units) + 20:
-                position = Vec2Int(my_melee_base.position.x+game.orientation[0], my_melee_base.position.y+game.orientation[1])
-                build_action = BuildAction(EntityType.MELEE_UNIT, position)
-            entity_actions[my_melee_base.id] = EntityAction(None, build_action, None, None)
+        # bases
+        try:
+            # melee bases
+            for my_melee_base in game.my_melee_bases:
+                build_action = None
+                if game.free_unit_slots > 1 and game.my_resource_count >= 20 and len(game.my_ranged_units) > len(game.my_melee_units) + 20:
+                    position = Vec2Int(my_melee_base.position.x+game.orientation[0], my_melee_base.position.y+game.orientation[1])
+                    build_action = BuildAction(EntityType.MELEE_UNIT, position)
+                entity_actions[my_melee_base.id] = EntityAction(None, build_action, None, None)
 
-        # ranged bases
-        for my_ranged_base in game.my_ranged_bases:
-            build_action = None
-            if game.free_unit_slots > 1 and game.my_resource_count >= 30:
-                position = Vec2Int(my_ranged_base.position.x+game.orientation[0], my_ranged_base.position.y+game.orientation[1])
-                build_action = BuildAction(EntityType.RANGED_UNIT, position)
-            entity_actions[my_ranged_base.id] = EntityAction(None, build_action, None, None)
+            # ranged bases
+            for my_ranged_base in game.my_ranged_bases:
+                build_action = None
+                if game.free_unit_slots > 1 and game.my_resource_count >= 30:
+                    position = Vec2Int(my_ranged_base.position.x+game.orientation[0], my_ranged_base.position.y+game.orientation[1])
+                    build_action = BuildAction(EntityType.RANGED_UNIT, position)
+                entity_actions[my_ranged_base.id] = EntityAction(None, build_action, None, None)
 
-        # main base
-        for my_builder_base in game.my_builder_bases:
-            build_action = None
-            if game.free_unit_slots and (game.my_resource_count >= 10) and (len(game.my_builder_units) < len(game.resources) // 2) and (len(game.my_builder_units) <= 36) and (len(game.my_builder_units) <= game.my_food_count // 2):
-                position = Vec2Int(my_builder_base.position.x+game.orientation[0], my_builder_base.position.y+game.orientation[1])
-                build_action = BuildAction(EntityType.BUILDER_UNIT, position)
-            entity_actions[my_builder_base.id] = EntityAction(None, build_action, None, None)
-        times.append(time.time()-tstmp)
+            # main base
+            for my_builder_base in game.my_builder_bases:
+                build_action = None
+                if game.free_unit_slots and (game.my_resource_count >= 10) and (len(game.my_builder_units) < len(game.resources) // 2) and (len(game.my_builder_units) <= 36) and (len(game.my_builder_units) <= game.my_food_count // 2):
+                    position = Vec2Int(my_builder_base.position.x+game.orientation[0], my_builder_base.position.y+game.orientation[1])
+                    build_action = BuildAction(EntityType.BUILDER_UNIT, position)
+                entity_actions[my_builder_base.id] = EntityAction(None, build_action, None, None)
+        except:
+            pass
+        self.times.append(time.time()-tstmp)
         tstmp = time.time()
 
         # army
@@ -346,7 +360,7 @@ class MyStrategy:
                 entity_actions[battle_ship.id] = EntityAction(move_action, None, attack_action, None)
         except:
             pass
-        times.append(time.time()-tstmp)
+        self.times.append(time.time()-tstmp)
 
         # turrets
         for turret in game.my_turrets:
@@ -371,7 +385,7 @@ class MyStrategy:
             dedicated_house_builder = 1
 
         # building a rbarracks
-        if (rbarracks_to_repair is not None) or (len(game.my_builder_units) > 20 and len(game.my_ranged_bases) == 1) or (game.my_resource_count > 700 and len(game.my_ranged_bases) == 2):
+        if (rbarracks_to_repair is not None) or (len(game.my_builder_units) > 20 and len(game.my_ranged_bases) == 1 and game.my_resource_count > 400) or (game.my_resource_count > 700 and len(game.my_ranged_bases) == 2):
             dedicated_rbarracks_builder = 1
             builder = game.my_builder_units[1]
             move_spot = None
@@ -416,7 +430,7 @@ class MyStrategy:
                     if move_spot is not None:
                         move_action = MoveAction(move_spot, True, False)
                     entity_actions[builder.id] = EntityAction(move_action, build_action, None, None)
-        times.append(time.time()-tstmp)
+        self.times.append(time.time()-tstmp)
         tstmp = time.time()
 
         # gather resources
@@ -432,17 +446,18 @@ class MyStrategy:
                 entity_actions[builder.id] = EntityAction(move_action, None, attack_action, None)
         except:
             pass
-        times.append(time.time()-tstmp)
-
-        debug_interface.send(DebugCommand.Add(DebugData.Log(f'Init     : {times[0]*1000}')))
-        debug_interface.send(DebugCommand.Add(DebugData.Log(f'Bases    : {times[1]*1000}')))
-        debug_interface.send(DebugCommand.Add(DebugData.Log(f'Army     : {times[2]*1000}')))
-        debug_interface.send(DebugCommand.Add(DebugData.Log(f'Houses   : {times[3]*1000}')))
-        debug_interface.send(DebugCommand.Add(DebugData.Log(f'Resourses: {times[4]*1000}')))
+        self.times.append(time.time()-tstmp)
 
         return Action(entity_actions)
 
     def debug_update(self, player_view, debug_interface):
         debug_interface.send(DebugCommand.Clear())
-        debug_interface.send(DebugCommand.Add(DebugData.Log(f'Message')))
+        if len(self.times) > 0:
+            debug_interface.send(DebugCommand.Add(DebugData.Log(f'Init     : {self.times[0]*1000:.2f}')))
+            debug_interface.send(DebugCommand.Add(DebugData.Log(f'Bases    : {self.times[1]*1000:.2f}')))
+            debug_interface.send(DebugCommand.Add(DebugData.Log(f'Army     : {self.times[2]*1000:.2f}')))
+            debug_interface.send(DebugCommand.Add(DebugData.Log(f'Constract: {self.times[3]*1000:.2f}')))
+            debug_interface.send(DebugCommand.Add(DebugData.Log(f'Resourses: {self.times[4]*1000:.2f}')))
+        # if len(self.workers) > 0:
+        #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'Workers: {self.workers}')))
         debug_interface.get_state()

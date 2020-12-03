@@ -225,6 +225,8 @@ class Game:
                     for j in range(5):
                         self.free_spots[entity.position.x+i][entity.position.y+j] = False
 
+        self.my_builder_units.sort(key=lambda probe: probe.id)
+
         self.obtainable_resources = []
         res_coords = set()
         for res in self.resources:
@@ -354,7 +356,7 @@ class MyStrategy:
             dedicated_house_builder = 1
 
         # building a rbarracks
-        if (rbarracks_to_repair is not None) or (len(game.my_builder_units) > 20 and len(game.my_ranged_bases) == 1) or (game.my_resource_count > 700 and len(game.my_ranged_bases) == 2):
+        if (rbarracks_to_repair is not None) or (len(game.my_builder_units) > 20 and len(game.my_ranged_bases) == 1 and game.my_resource_count > 400) or (game.my_resource_count > 700 and len(game.my_ranged_bases) == 2):
             dedicated_rbarracks_builder = 1
             builder = game.my_builder_units[1]
             move_spot = None
