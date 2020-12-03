@@ -3,8 +3,9 @@ from model import DebugCommand, DebugData
 from model import EntityType, Vec2Int
 # import time
 
+# TODO early def 19252
+# TODO break walls?
 # TODO res_find - no other units on move_spot
-# TODO building positions - have space inbetween - new free_spot_map with wider occupied zones
 
 
 class Calc:
@@ -330,7 +331,7 @@ class MyStrategy:
                         dist, attack_target, move_target = Calc.find_closest(cur_pos, game.enemy_buildings, game.map_size**2)
                 if move_target is not None:
                     move_action = MoveAction(move_target, True, False)
-                    attack_action = AttackAction(attack_target, AutoAttack(3, []))
+                    attack_action = AttackAction(attack_target, AutoAttack(20, []))
                 entity_actions[battle_ship.id] = EntityAction(move_action, None, attack_action, None)
         except:
             pass
