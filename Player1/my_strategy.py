@@ -3,6 +3,7 @@ from model import DebugCommand, DebugData
 from model import EntityType, Vec2Int
 import time
 
+# TODO workers up to 15, two houses at a time
 # TODO implemetn NEED_HOUSE trigger and one more dedicated builder
 # TODO stop searching by attack_range, not const 1
 # TODO early def 19252
@@ -379,7 +380,7 @@ class MyStrategy:
         try:
             if len(game.my_army) < 5 and len(game.my_ranged_bases) > 0 and len(game.my_builder_units) > 0:
                 self.attack_mode = False
-            elif len(game.my_army) > 10:
+            elif len(game.my_army) > 8:
                 self.attack_mode = True
 
             for battle_ship in game.my_army:
