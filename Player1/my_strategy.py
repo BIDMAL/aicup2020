@@ -169,8 +169,6 @@ class Game:
                 self.my_resource_count = player.resource
             else:
                 self.enemy_ids.append(player.id)
-
-    def parse_entities(self, entities):
         self.my_walls = []
         self.my_houses = []
         self.my_builder_bases = []
@@ -184,13 +182,15 @@ class Game:
         self.my_turrets = []
         self.enemy_units = []
         self.enemy_buildings = []
-        free_spots = [[True for _ in range(self.map_size)] for _ in range(self.map_size)]
+        self.free_spots = [[True for _ in range(self.map_size)] for _ in range(self.map_size)]
+
+    def parse_entities(self, entities):
 
         for entity in entities:
             if entity.entity_type == EntityType.RESOURCE:
                 self.resources.append(entity)
                 self.res_avails[entity.id] = True
-                free_spots[entity.position.x][entity.position.y] = False
+                self.free_spots[entity.position.x][entity.position.y] = False
             if entity.player_id == self.my_id:
                 if entity.entity_type == EntityType.WALL:
                     self.my_walls.append(entity)
@@ -217,19 +217,19 @@ class Game:
                     self.enemy_buildings.append(entity)
 
             if entity.entity_type in {EntityType.WALL, EntityType.BUILDER_UNIT, EntityType.MELEE_UNIT, EntityType.RANGED_UNIT}:
-                free_spots[entity.position.x][entity.position.y] = False
+                self.free_spots[entity.position.x][entity.position.y] = False
             elif entity.entity_type == EntityType.TURRET:
                 for i in range(2):
                     for j in range(2):
-                        free_spots[entity.position.x+i][entity.position.y+j] = False
+                        self.free_spots[entity.position.x+i][entity.position.y+j] = False
             elif entity.entity_type == EntityType.HOUSE:
                 for i in range(3):
                     for j in range(3):
-                        free_spots[entity.position.x+i][entity.position.y+j] = False
+                        self.free_spots[entity.position.x+i][entity.position.y+j] = False
             elif entity.entity_type in {EntityType.BUILDER_BASE, EntityType.MELEE_BASE, EntityType.RANGED_BASE}:
                 for i in range(5):
                     for j in range(5):
-                        free_spots[entity.position.x+i][entity.position.y+j] = False
+                        self.free_spots[entity.position.x+i][entity.position.y+j] = False
 
         self.obtainable_resources = []
         res_coords = set()
@@ -278,9 +278,9 @@ class Game:
                 self.def_point = (12, 12)
 
         for entity in self.my_prod:
-            free_spots[entity.position.x+self.orientation[0]][entity.position.y+self.orientation[1]] = False
+            self.free_spots[entity.position.x+self.orientation[0]][entity.position.y+self.orientation[1]] = False
 
-        return free_spots, self.def_point
+        return self.free_spots, self.def_point
 
 
 class MyStrategy:
@@ -298,10 +298,18 @@ class MyStrategy:
         times.append(time.time()-tstmp)
         tstmp = time.time()
 
+        # melee bases
+        for my_melee_base in game.my_melee_bases:
+            build_action = None
+            if game.free_unit_slots > 1 and game.my_resource_count >= 20 and len(game.my_ranged_units) > len(game.my_melee_units) + 20:
+                position = Vec2Int(my_melee_base.position.x+game.orientation[0], my_melee_base.position.y+game.orientation[1])
+                build_action = BuildAction(EntityType.MELEE_UNIT, position)
+            entity_actions[my_melee_base.id] = EntityAction(None, build_action, None, None)
+
         # ranged bases
         for my_ranged_base in game.my_ranged_bases:
             build_action = None
-            if game.free_unit_slots and game.my_resource_count >= 30:
+            if game.free_unit_slots > 1 and game.my_resource_count >= 30:
                 position = Vec2Int(my_ranged_base.position.x+game.orientation[0], my_ranged_base.position.y+game.orientation[1])
                 build_action = BuildAction(EntityType.RANGED_UNIT, position)
             entity_actions[my_ranged_base.id] = EntityAction(None, build_action, None, None)
