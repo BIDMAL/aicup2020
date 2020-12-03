@@ -1,8 +1,9 @@
 from model import Action, EntityAction, BuildAction, MoveAction, AttackAction, RepairAction, AutoAttack
 from model import DebugCommand, DebugData
 from model import EntityType, Vec2Int
-# import time
+import time
 
+# TODO stop searching by attack_range, not const 1
 # TODO early def 19252
 # TODO break walls?
 # TODO res_find - no other units on move_spot
@@ -98,11 +99,13 @@ class Map:
 
         return None
 
-    def find_building_spot(self, size):
+    def find_building_spot(self, size, builder_position):
         start_x = 0
         start_y = 0
         increment_x = 1
         increment_y = 1
+        free_map = self.free_map
+        free_map[builder_position.x][builder_position.y] = True
         half = self.map_size // 2
         if self.def_point is not None:
             if self.def_point[0] > half:
@@ -283,8 +286,8 @@ class Game:
 class MyStrategy:
 
     def get_action(self, player_view, debug_interface):
-        # times = []
-        # tstmp = time.time()
+        times = []
+        tstmp = time.time()
 
         entity_actions = {}
         game = Game(player_view.map_size, player_view.my_id, player_view.players)
@@ -292,8 +295,8 @@ class MyStrategy:
 
         # debug_interface.send(DebugCommand.Add(DebugData.Log(f'Total res: {len(game.resources)}')))
         # debug_interface.send(DebugCommand.Add(DebugData.Log(f'Obt res  : {len(game.obtainable_resources)}')))
-        # times.append(time.time()-tstmp)
-        # tstmp = time.time()
+        times.append(time.time()-tstmp)
+        tstmp = time.time()
 
         # ranged bases
         for my_ranged_base in game.my_ranged_bases:
@@ -306,12 +309,12 @@ class MyStrategy:
         # main base
         for my_builder_base in game.my_builder_bases:
             build_action = None
-            if game.free_unit_slots and (game.my_resource_count >= 10) and (len(game.my_builder_units) < len(game.resources) // 2) and (len(game.my_builder_units) <= 31) and (len(game.my_builder_units) <= game.my_food_count // 2):
+            if game.free_unit_slots and (game.my_resource_count >= 10) and (len(game.my_builder_units) < len(game.resources) // 2) and (len(game.my_builder_units) <= 36) and (len(game.my_builder_units) <= game.my_food_count // 2):
                 position = Vec2Int(my_builder_base.position.x+game.orientation[0], my_builder_base.position.y+game.orientation[1])
                 build_action = BuildAction(EntityType.BUILDER_UNIT, position)
             entity_actions[my_builder_base.id] = EntityAction(None, build_action, None, None)
-        # times.append(time.time()-tstmp)
-        # tstmp = time.time()
+        times.append(time.time()-tstmp)
+        tstmp = time.time()
 
         # army
         try:
@@ -335,14 +338,14 @@ class MyStrategy:
                 entity_actions[battle_ship.id] = EntityAction(move_action, None, attack_action, None)
         except:
             pass
-        # times.append(time.time()-tstmp)
+        times.append(time.time()-tstmp)
 
         # turrets
         for turret in game.my_turrets:
             attack_action = AttackAction(None, AutoAttack(5, []))
             entity_actions[turret.id] = EntityAction(None, None, attack_action, None)
 
-        # tstmp = time.time()
+        tstmp = time.time()
         # calcs for house repair
         house_to_repair = None
         rbarracks_to_repair = None
@@ -374,16 +377,17 @@ class MyStrategy:
                     move_action = MoveAction(move_spot, True, False)
                 entity_actions[builder.id] = EntityAction(move_action, None, None, repair_action)
             else:
-                rbarracks_spot = damap.find_building_spot(6)
+                rbarracks_spot = damap.find_building_spot(6, builder.position)
                 if rbarracks_spot is not None:
                     build_action = BuildAction(EntityType.RANGED_BASE, rbarracks_spot)
                     move_spot = damap.find_move_spot(builder.position, rbarracks_spot, 5)
                     if move_spot is not None:
                         move_action = MoveAction(move_spot, True, False)
+                    debug_interface.send(DebugCommand.Add(DebugData.Log(f'rbar     : {move_action}, {build_action}')))
                     entity_actions[builder.id] = EntityAction(move_action, build_action, None, None)
 
         # building a house
-        if (house_to_repair is not None) or (game.free_unit_slots <= 1 and len(game.my_builder_units)):
+        if (house_to_repair is not None) or (game.free_unit_slots <= 2 and len(game.my_builder_units)):
             dedicated_house_builder = 1
             builder = game.my_builder_units[0]
             move_spot = None
@@ -397,15 +401,15 @@ class MyStrategy:
                     move_action = MoveAction(move_spot, True, False)
                 entity_actions[builder.id] = EntityAction(move_action, None, None, repair_action)
             else:
-                house_spot = damap.find_building_spot(3)
+                house_spot = damap.find_building_spot(3, builder.position)
                 if house_spot is not None:
                     build_action = BuildAction(EntityType.HOUSE, house_spot)
                     move_spot = damap.find_move_spot(builder.position, house_spot, 3)
                     if move_spot is not None:
                         move_action = MoveAction(move_spot, True, False)
                     entity_actions[builder.id] = EntityAction(move_action, build_action, None, None)
-        # times.append(time.time()-tstmp)
-        # tstmp = time.time()
+        times.append(time.time()-tstmp)
+        tstmp = time.time()
 
         # gather resources
         try:
@@ -420,13 +424,13 @@ class MyStrategy:
                 entity_actions[builder.id] = EntityAction(move_action, None, attack_action, None)
         except:
             pass
-        # times.append(time.time()-tstmp)
+        times.append(time.time()-tstmp)
 
-        # debug_interface.send(DebugCommand.Add(DebugData.Log(f'Init     : {times[0]*1000}')))
-        # debug_interface.send(DebugCommand.Add(DebugData.Log(f'Bases    : {times[1]*1000}')))
-        # debug_interface.send(DebugCommand.Add(DebugData.Log(f'Army     : {times[2]*1000}')))
-        # debug_interface.send(DebugCommand.Add(DebugData.Log(f'Houses   : {times[3]*1000}')))
-        # debug_interface.send(DebugCommand.Add(DebugData.Log(f'Resourses: {times[4]*1000}')))
+        debug_interface.send(DebugCommand.Add(DebugData.Log(f'Init     : {times[0]*1000}')))
+        debug_interface.send(DebugCommand.Add(DebugData.Log(f'Bases    : {times[1]*1000}')))
+        debug_interface.send(DebugCommand.Add(DebugData.Log(f'Army     : {times[2]*1000}')))
+        debug_interface.send(DebugCommand.Add(DebugData.Log(f'Houses   : {times[3]*1000}')))
+        debug_interface.send(DebugCommand.Add(DebugData.Log(f'Resourses: {times[4]*1000}')))
 
         return Action(entity_actions)
 
