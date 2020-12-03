@@ -3,6 +3,7 @@ from model import DebugCommand, DebugData
 from model import EntityType, Vec2Int
 import time
 
+# TODO implemetn NEED_HOUSE trigger and one more dedicated builder
 # TODO stop searching by attack_range, not const 1
 # TODO early def 19252
 # TODO break walls?
