@@ -28,7 +28,7 @@ class Calc:
         return result
 
     @staticmethod
-    def find_closest(cur_pos, targets, max_dist, available=None, dist_limit=1):
+    def find_closest(cur_pos, targets, max_dist, available=None):
         dist = max_dist
         closest_target = None
         for target in targets:
@@ -39,7 +39,7 @@ class Calc:
             if cur_dist < dist:
                 dist = cur_dist
                 closest_target = target
-                if dist <= 1:
+                if dist < 2:
                     break
         return dist, closest_target.id, closest_target.position
 
