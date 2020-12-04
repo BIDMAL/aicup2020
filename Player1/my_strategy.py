@@ -234,7 +234,8 @@ class Game:
                     for j in range(5):
                         self.free_spots[entity.position.x+i][entity.position.y+j] = False
 
-        self.my_builder_units.sort(key=lambda probe: probe.id)
+        self.my_builder_units.sort(key=lambda entity: entity.id)
+        self.my_houses.sort(key=lambda entity: entity.id)
 
         self.obtainable_resources = []
         res_coords = set()
@@ -297,20 +298,16 @@ class MyStrategy:
 
     def __init__(self):
         self.times = []
-        self.workers = []
         self.attack_mode = False
 
     def get_action(self, player_view, debug_interface):
         self.times = []
-        self.workers = []
         tstmp = time.time()
 
         entity_actions = {}
         game = Game(player_view.map_size, player_view.my_id, player_view.players)
         damap = Map(game.parse_entities(player_view.entities))
 
-        for worker in game.my_builder_units:
-            self.workers.append(worker.id)
         # debug_interface.send(DebugCommand.Add(DebugData.Log(f'Total res: {len(game.resources)}')))
         # debug_interface.send(DebugCommand.Add(DebugData.Log(f'Obt res  : {len(game.obtainable_resources)}')))
         self.times.append(time.time()-tstmp)
@@ -318,30 +315,44 @@ class MyStrategy:
 
         # calcs for building repair
         try:
-            house_to_repair = None
+            house_to_repair1 = None
+            house_to_repair2 = None
             rbarracks_to_repair = None
-            need_house = False
-            house_not_in_progress = True
+            need_house1 = False
+            need_house2 = False
+            house_not_in_progress1 = True
+            house_not_in_progress2 = True
+            rbarracks_not_in_progress = True
 
             if game.free_unit_slots < 3:
-                need_house = True
+                need_house1 = True
+            if game.free_unit_slots < 2:
+                need_house2 = True
             for house in game.my_houses:
                 if not house.active:
-                    house_to_repair = house
-                    house_not_in_progress = False
-                    break
+                    if house_to_repair1 is None:
+                        house_to_repair1 = house
+                        house_not_in_progress1 = False
+                        break
+                    elif house_to_repair2 is None:
+                        house_to_repair2 = house
+                        house_not_in_progress2 = False
+                        break
             for rbarracks in game.my_ranged_bases:
                 if not rbarracks.active:
                     rbarracks_to_repair = rbarracks
-                    house_not_in_progress = False
+                    rbarracks_not_in_progress = False
                     break
-            dedicated_house_builder = 0
+            building_not_in_progress = house_not_in_progress1 and house_not_in_progress2 and rbarracks_not_in_progress
+            need_house = need_house1 or need_house2
+
+            dedicated_house_builders = 0
             dedicated_rbarracks_builder = 0
-            if game.my_unit_count >= 15:
-                dedicated_house_builder = 1
+            if 14 < game.my_unit_count < 100:
+                dedicated_house_builders = 2
 
             can_produce = True
-            if need_house and house_not_in_progress:
+            if need_house and building_not_in_progress:
                 can_produce = False
 
         except:
@@ -368,7 +379,10 @@ class MyStrategy:
             # main base
             for my_builder_base in game.my_builder_bases:
                 build_action = None
-                if can_produce and (game.my_resource_count >= 10) and (len(game.my_builder_units) <= 36) and (len(game.my_builder_units) <= game.my_food_count // 2 + 2):
+                cond1 = can_produce and game.my_resource_count >= 10 and len(game.my_builder_units) <= 36 and (
+                    len(game.my_builder_units) <= game.my_food_count // 2 + 2) and len(game.my_builder_units) <= len(game.resources) // 2
+                cond2 = game.my_resource_count >= 10 and len(game.my_builder_units) < 16 and len(game.my_builder_units) <= len(game.resources) // 2
+                if cond1 or cond2:
                     position = Vec2Int(my_builder_base.position.x+game.orientation[0], my_builder_base.position.y+game.orientation[1])
                     build_action = BuildAction(EntityType.BUILDER_UNIT, position)
                 entity_actions[my_builder_base.id] = EntityAction(None, build_action, None, None)
@@ -416,7 +430,7 @@ class MyStrategy:
         try:
             if (rbarracks_to_repair is not None) or (len(game.my_builder_units) > 20 and len(game.my_ranged_bases) == 1 and game.my_resource_count > 400) or (game.my_resource_count > 700 and len(game.my_ranged_bases) == 2):
                 dedicated_rbarracks_builder = 1
-                builder = game.my_builder_units[1]
+                builder = game.my_builder_units[dedicated_house_builders]
                 move_spot = None
                 move_action = None
                 build_action = None
@@ -441,16 +455,40 @@ class MyStrategy:
 
         # building a house
         try:
-            if (house_to_repair is not None) or (game.free_unit_slots <= 2 and len(game.my_builder_units)):
-                dedicated_house_builder = 1
+            # first
+            if (house_to_repair1 is not None) or (game.free_unit_slots < 3 and len(game.my_builder_units)):
+                dedicated_house_builders = max(dedicated_house_builders, 1)
                 builder = game.my_builder_units[0]
                 move_spot = None
                 move_action = None
                 build_action = None
                 repair_action = None
-                if house_to_repair is not None:
-                    repair_action = RepairAction(house_to_repair.id)
-                    move_spot = damap.find_move_spot(builder.position, house_to_repair.position, 3)
+                if house_to_repair1 is not None:
+                    repair_action = RepairAction(house_to_repair1.id)
+                    move_spot = damap.find_move_spot(builder.position, house_to_repair1.position, 3)
+                    if move_spot is not None:
+                        move_action = MoveAction(move_spot, True, False)
+                    entity_actions[builder.id] = EntityAction(move_action, None, None, repair_action)
+                else:
+                    house_spot = damap.find_building_spot(3, builder.position)
+                    if house_spot is not None:
+                        build_action = BuildAction(EntityType.HOUSE, house_spot)
+                        move_spot = damap.find_move_spot(builder.position, house_spot, 3)
+                        if move_spot is not None:
+                            move_action = MoveAction(move_spot, True, False)
+                        entity_actions[builder.id] = EntityAction(move_action, build_action, None, None)
+
+            # second
+            if (house_to_repair2 is not None) or (game.free_unit_slots < 2 and len(game.my_builder_units)):
+                dedicated_house_builders = max(dedicated_house_builders, 2)
+                builder = game.my_builder_units[1]
+                move_spot = None
+                move_action = None
+                build_action = None
+                repair_action = None
+                if house_to_repair2 is not None:
+                    repair_action = RepairAction(house_to_repair2.id)
+                    move_spot = damap.find_move_spot(builder.position, house_to_repair2.position, 3)
                     if move_spot is not None:
                         move_action = MoveAction(move_spot, True, False)
                     entity_actions[builder.id] = EntityAction(move_action, None, None, repair_action)
@@ -469,7 +507,7 @@ class MyStrategy:
 
         # gather resources
         try:
-            for builder in game.my_builder_units[dedicated_house_builder+dedicated_rbarracks_builder:]:
+            for builder in game.my_builder_units[dedicated_house_builders+dedicated_rbarracks_builder:]:
                 cur_pos = builder.position
                 move_action = None
                 attack_action = None
