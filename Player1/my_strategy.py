@@ -131,6 +131,9 @@ class Map:
                     if not available:
                         break
                 if available:
+                    for ii in range(x, x+size):
+                        for jj in range(y, y+size):
+                            self.free_map[ii][jj] = False
                     return Vec2Int(x, y)
                 x = start_x + increment_x * xy
                 y = start_y + increment_y * z
@@ -143,6 +146,9 @@ class Map:
                     if not available:
                         break
                 if available:
+                    for ii in range(x, x+size):
+                        for jj in range(y, y+size):
+                            self.free_map[ii][jj] = False
                     return Vec2Int(x, y)
             x = start_x + increment_x * z
             y = start_y + increment_y * z
@@ -155,6 +161,9 @@ class Map:
                 if not available:
                     break
             if available:
+                for ii in range(x, x+size):
+                    for jj in range(y, y+size):
+                        self.free_map[ii][jj] = False
                 return Vec2Int(x, y)
         return None
 
@@ -176,6 +185,7 @@ class Game:
         self.my_houses = []
         self.my_builder_bases = []
         self.my_builder_units = []
+        self.my_builder_units_ids = set()
         self.my_melee_bases = []
         self.my_melee_units = []
         self.my_ranged_bases = []
@@ -203,6 +213,7 @@ class Game:
                     self.my_builder_bases.append(entity)
                 elif entity.entity_type == EntityType.BUILDER_UNIT:
                     self.my_builder_units.append(entity)
+                    self.my_builder_units_ids.add(entity.id)
                 elif entity.entity_type == EntityType.MELEE_BASE:
                     self.my_melee_bases.append(entity)
                 elif entity.entity_type == EntityType.MELEE_UNIT:
@@ -299,6 +310,11 @@ class MyStrategy:
     def __init__(self):
         self.times = []
         self.attack_mode = False
+        self.need_houses = 0
+        self.houses_in_progress = []
+        self.dedicated_house_builders = []
+        self.can_produce = None
+        self.buider_tasks = [[None, None, None], [None, None, None]]
 
     def get_action(self, player_view, debug_interface):
         self.times = []
@@ -314,56 +330,51 @@ class MyStrategy:
         tstmp = time.time()
 
         # calcs for building repair
-        try:
-            house_to_repair1 = None
-            house_to_repair2 = None
-            rbarracks_to_repair = None
-            need_house1 = False
-            need_house2 = False
-            house_not_in_progress1 = True
-            house_not_in_progress2 = True
-            rbarracks_not_in_progress = True
+        rbarracks_to_repair = None
 
-            if game.free_unit_slots < 3:
-                need_house1 = True
-            if game.free_unit_slots < 2:
-                need_house2 = True
-            for house in game.my_houses:
-                if not house.active:
-                    if house_to_repair1 is None:
-                        house_to_repair1 = house
-                        house_not_in_progress1 = False
-                        break
-                    elif house_to_repair2 is None:
-                        house_to_repair2 = house
-                        house_not_in_progress2 = False
-                        break
-            for rbarracks in game.my_ranged_bases:
-                if not rbarracks.active:
-                    rbarracks_to_repair = rbarracks
-                    rbarracks_not_in_progress = False
-                    break
-            building_not_in_progress = house_not_in_progress1 and house_not_in_progress2 and rbarracks_not_in_progress
-            need_house = need_house1 or need_house2
+        unrepaired_houses = []
+        for house in game.my_houses:
+            if not house.active:
+                unrepaired_houses.append(house)
+        self.houses_in_progress = [house for house in self.houses_in_progress if house in unrepaired_houses]
+        for house in unrepaired_houses:
+            if house not in self.houses_in_progress:
+                self.houses_in_progress.append(house)
+        for task in self.buider_tasks:
+            if (task[2] is not None) and (task[2] not in self.houses_in_progress):
+                task[2] = None
 
-            dedicated_house_builders = 0
-            dedicated_rbarracks_builder = 0
-            if 14 < game.my_unit_count < 100:
-                dedicated_house_builders = 2
+        if game.my_unit_count > 14 and game.free_unit_slots < 3 and len(self.houses_in_progress) < 2:
+            self.need_houses = 2 - len(self.houses_in_progress)
 
-            can_produce = True
-            if need_house and building_not_in_progress:
-                can_produce = False
+        dedicated_rbarracks_builder = 0
+        need_dedicated_house_builders = 0
+        self.dedicated_house_builders = [builder for builder in self.dedicated_house_builders if builder in game.my_builder_units_ids]
 
-        except:
-            pass
+        if 14 < game.my_unit_count < 100:
+            need_dedicated_house_builders = 2
+
+        if len(self.dedicated_house_builders) != need_dedicated_house_builders:
+            self.dedicated_house_builders = []
+            for i in range(need_dedicated_house_builders):
+                entity = game.my_builder_units.pop(0)
+                self.dedicated_house_builders.append(entity)
+                self.buider_tasks[i][0] = entity
+
+        for rbarracks in game.my_ranged_bases:
+            if not rbarracks.active:
+                rbarracks_to_repair = rbarracks
+                break
+        building_not_in_progress = len(self.houses_in_progress) == 0
+        if self.need_houses and building_not_in_progress:
+            self.can_produce = False
 
         # bases
         try:
             # melee bases
             for my_melee_base in game.my_melee_bases:
                 build_action = None
-                if can_produce and game.my_resource_count >= 20 and len(game.my_ranged_units) > len(game.my_melee_units) + 20:
+                if self.can_produce and game.my_resource_count >= 20 and len(game.my_ranged_units) > len(game.my_melee_units) + 20:
                     position = Vec2Int(my_melee_base.position.x+game.orientation[0], my_melee_base.position.y+game.orientation[1])
                     build_action = BuildAction(EntityType.MELEE_UNIT, position)
                 entity_actions[my_melee_base.id] = EntityAction(None, build_action, None, None)
@@ -371,7 +382,7 @@ class MyStrategy:
             # ranged bases
             for my_ranged_base in game.my_ranged_bases:
                 build_action = None
-                if can_produce and game.my_resource_count >= 30:
+                if self.can_produce and game.my_resource_count >= 30:
                     position = Vec2Int(my_ranged_base.position.x+game.orientation[0], my_ranged_base.position.y+game.orientation[1])
                     build_action = BuildAction(EntityType.RANGED_UNIT, position)
                 entity_actions[my_ranged_base.id] = EntityAction(None, build_action, None, None)
@@ -379,7 +390,7 @@ class MyStrategy:
             # main base
             for my_builder_base in game.my_builder_bases:
                 build_action = None
-                cond1 = can_produce and game.my_resource_count >= 10 and len(game.my_builder_units) <= 36 and (
+                cond1 = self.can_produce and game.my_resource_count >= 10 and len(game.my_builder_units) <= 36 and (
                     len(game.my_builder_units) <= game.my_food_count // 2 + 2) and len(game.my_builder_units) <= len(game.resources) // 2
                 cond2 = game.my_resource_count >= 10 and len(game.my_builder_units) < 16 and len(game.my_builder_units) <= len(game.resources) // 2
                 if cond1 or cond2:
@@ -426,11 +437,11 @@ class MyStrategy:
             entity_actions[turret.id] = EntityAction(None, None, attack_action, None)
 
         tstmp = time.time()
-        # building a rbarracks
+        # building RB
         try:
-            if (rbarracks_to_repair is not None) or (len(game.my_builder_units) > 20 and len(game.my_ranged_bases) == 1 and game.my_resource_count > 400):
+            if (rbarracks_to_repair is not None) or (len(game.my_builder_units) > 20 and len(game.my_ranged_bases) < 2 and game.my_resource_count > 400):
                 dedicated_rbarracks_builder = 1
-                builder = game.my_builder_units[dedicated_house_builders]
+                builder = game.my_builder_units[0]
                 move_spot = None
                 move_action = None
                 build_action = None
@@ -454,60 +465,50 @@ class MyStrategy:
             pass
 
         # building a house
-        try:
-            # first
-            if (house_to_repair1 is not None) or (game.free_unit_slots < 3 and len(game.my_builder_units)):
-                dedicated_house_builders = max(dedicated_house_builders, 1)
-                builder = game.my_builder_units[0]
-                move_spot = None
-                move_action = None
-                build_action = None
-                repair_action = None
-                if house_to_repair1 is not None:
-                    repair_action = RepairAction(house_to_repair1.id)
-                    move_spot = damap.find_move_spot(builder.position, house_to_repair1.position, 3)
-                    if move_spot is not None:
-                        move_action = MoveAction(move_spot, True, False)
-                    entity_actions[builder.id] = EntityAction(move_action, None, None, repair_action)
-                else:
-                    house_spot = damap.find_building_spot(3, builder.position)
-                    if house_spot is not None:
-                        build_action = BuildAction(EntityType.HOUSE, house_spot)
-                        move_spot = damap.find_move_spot(builder.position, house_spot, 3)
-                        if move_spot is not None:
-                            move_action = MoveAction(move_spot, True, False)
-                        entity_actions[builder.id] = EntityAction(move_action, build_action, None, None)
 
-            # second
-            if (house_to_repair2 is not None) or (game.free_unit_slots < 2 and len(game.my_builder_units)):
-                dedicated_house_builders = max(dedicated_house_builders, 2)
-                builder = game.my_builder_units[1]
-                move_spot = None
-                move_action = None
-                build_action = None
-                repair_action = None
-                if house_to_repair2 is not None:
-                    repair_action = RepairAction(house_to_repair2.id)
-                    move_spot = damap.find_move_spot(builder.position, house_to_repair2.position, 3)
-                    if move_spot is not None:
-                        move_action = MoveAction(move_spot, True, False)
-                    entity_actions[builder.id] = EntityAction(move_action, None, None, repair_action)
-                else:
-                    house_spot = damap.find_building_spot(3, builder.position)
+        # build
+        # debug_interface.send(DebugCommand.Add(DebugData.Log(f'self.need_houses: {self.need_houses}')))
+        # print(self.dedicated_house_builders)
+        if self.need_houses:
+            # debug_interface.send(DebugCommand.Add(DebugData.Log(f'builder: {builder}')))
+            for task in self.buider_tasks:
+                if task[1] is None and task[2] is None:
+                    move_spot = None
+                    move_action = None
+                    build_action = None
+                    repair_action = None
+                    house_spot = damap.find_building_spot(3, task[0].position)
                     if house_spot is not None:
                         build_action = BuildAction(EntityType.HOUSE, house_spot)
-                        move_spot = damap.find_move_spot(builder.position, house_spot, 3)
+                        move_spot = damap.find_move_spot(task[0].position, house_spot, 3)
                         if move_spot is not None:
                             move_action = MoveAction(move_spot, True, False)
-                        entity_actions[builder.id] = EntityAction(move_action, build_action, None, None)
-        except:
-            pass
+                        task[1] = move_action
+                        entity_actions[task[0].id] = EntityAction(move_action, build_action, None, None)
+
+        for house_to_repair in self.houses_in_progress:
+            for task in self.buider_tasks:
+                if house_to_repair not in {self.buider_tasks[0][2], self.buider_tasks[1][2]}:
+                    if task[2] is None:
+                        move_action = None
+                        build_action = None
+                        repair_action = RepairAction(house_to_repair.id)
+                        task[2] = house_to_repair
+                        task[1] = None
+                        move_spot = damap.find_move_spot(task[0].position, house_to_repair.position, 3)
+                        if move_spot is not None:
+                            move_action = MoveAction(move_spot, True, False)
+                        entity_actions[task[0].id] = EntityAction(move_action, None, None, repair_action)
+
+        for i in range(len(self.dedicated_house_builders)):
+            print(f"{i}: {entity_actions[self.dedicated_house_builders[i].id]}")
+
         self.times.append(time.time()-tstmp)
         tstmp = time.time()
 
         # gather resources
         try:
-            for builder in game.my_builder_units[dedicated_house_builders+dedicated_rbarracks_builder:]:
+            for builder in game.my_builder_units[dedicated_rbarracks_builder:]:
                 cur_pos = builder.position
                 move_action = None
                 attack_action = None
@@ -519,17 +520,19 @@ class MyStrategy:
         except:
             pass
         self.times.append(time.time()-tstmp)
-
+        # debug_interface.send(DebugCommand.Add(DebugData.Log(f'entity_actions: {entity_actions}')))
+        # print(entity_actions)
         return Action(entity_actions)
 
     def debug_update(self, player_view, debug_interface):
         debug_interface.send(DebugCommand.Clear())
-        if len(self.times) > 0:
-            debug_interface.send(DebugCommand.Add(DebugData.Log(f'Init     : {self.times[0]*1000:.2f}')))
-            debug_interface.send(DebugCommand.Add(DebugData.Log(f'Bases    : {self.times[1]*1000:.2f}')))
-            debug_interface.send(DebugCommand.Add(DebugData.Log(f'Army     : {self.times[2]*1000:.2f}')))
-            debug_interface.send(DebugCommand.Add(DebugData.Log(f'Constract: {self.times[3]*1000:.2f}')))
-            debug_interface.send(DebugCommand.Add(DebugData.Log(f'Resourses: {self.times[4]*1000:.2f}')))
+        # if len(self.times) > 0:
+        #    debug_interface.send(DebugCommand.Add(DebugData.Log(f'Init     : {self.times[0]*1000:.2f}')))
+        #    debug_interface.send(DebugCommand.Add(DebugData.Log(f'Bases    : {self.times[1]*1000:.2f}')))
+        #    debug_interface.send(DebugCommand.Add(DebugData.Log(f'Army     : {self.times[2]*1000:.2f}')))
+        #    debug_interface.send(DebugCommand.Add(DebugData.Log(f'Constract: {self.times[3]*1000:.2f}')))
+        #    debug_interface.send(DebugCommand.Add(DebugData.Log(f'Resourses: {self.times[4]*1000:.2f}')))
         # if len(self.workers) > 0:
         #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'Workers: {self.workers}')))
+        debug_interface.send(DebugCommand.Add(DebugData.Log(f'can_produce: {self.can_produce}')))
         debug_interface.get_state()

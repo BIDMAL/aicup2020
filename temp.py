@@ -26,3 +26,10 @@
 
 # x = 11
 # print(0 <= x < 10)
+
+# ll1 = [1, 2, 3]
+# ll2 = [2, 3, 4]
+# ll2 = [x for x in ll2 if (x in ll1)]
+# print(ll2)
+
+print(type({1, 2, 3}))
