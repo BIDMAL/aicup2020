@@ -454,7 +454,7 @@ class MyStrategy:
         # building RB
         try:
 
-            if (rbarracks_to_repair is not None) or (len(game.my_builder_units) > 20 and len(game.my_ranged_bases) < 2 and game.my_resource_count > 440):
+            if (rbarracks_to_repair is not None) or (len(game.my_builder_units) > 20 and len(game.my_ranged_bases) < 1 and game.my_resource_count > 440):
                 builder = game.my_builder_units.pop(0)
                 move_spot = None
                 move_action = None
