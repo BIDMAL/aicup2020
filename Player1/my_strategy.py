@@ -4,10 +4,7 @@ from model import EntityType, Vec2Int
 import time
 
 # TODO build melee_base if none
-# TODO workers up to 15, two houses at a time
-# TODO implemetn NEED_HOUSE trigger and one more dedicated builder
 # TODO stop searching by attack_range, not const 1
-# TODO early def 19252
 # TODO break walls?
 # TODO self.attack_mode rly needed?
 
@@ -309,6 +306,7 @@ class MyStrategy:
 
     def __init__(self):
         self.times = []
+        self.commands_this_turn = []
         self.attack_mode = False
         self.need_houses = 0
         self.houses_in_progress = []
@@ -318,6 +316,7 @@ class MyStrategy:
 
     def get_action(self, player_view, debug_interface):
         self.times = []
+        self.commands_this_turn = []
         tstmp = time.time()
 
         entity_actions = {}
@@ -329,49 +328,52 @@ class MyStrategy:
 
         # calcs for building repair
         rbarracks_to_repair = None
-
-        unrepaired_houses = []
-        for house in game.my_houses:
-            if not house.active:
-                unrepaired_houses.append(house)
-        self.houses_in_progress = [house for house in self.houses_in_progress if house in unrepaired_houses]
-        for house in unrepaired_houses:
-            if house not in self.houses_in_progress:
-                self.houses_in_progress.append(house)
-
-        houses_in_progress_ids = []
-        for house in self.houses_in_progress:
-            houses_in_progress_ids.append(house.id)
-        for task in self.buider_tasks:
-            if (task[2] is not None) and (task[2].id not in houses_in_progress_ids):
-                task[2] = None
-
-        if game.my_unit_count > 14 and game.free_unit_slots < 3 and len(self.houses_in_progress) < 2:
-            self.need_houses = 2 - len(self.houses_in_progress)
-
-        dedicated_rbarracks_builder = 0
-        need_dedicated_house_builders = 0
-        self.dedicated_house_builders = [builder for builder in self.dedicated_house_builders if builder in game.my_builder_units_ids]
-
-        if 14 < game.my_unit_count < 100:
-            need_dedicated_house_builders = 2
-
-        if len(self.dedicated_house_builders) != need_dedicated_house_builders:
-            self.dedicated_house_builders = []
-            for i in range(need_dedicated_house_builders):
-                entity = game.my_builder_units.pop(0)
-                self.dedicated_house_builders.append(entity)
-                self.buider_tasks[i][0] = entity
-                self.buider_tasks[i][1] = None
-                self.buider_tasks[i][2] = None
-
-        for rbarracks in game.my_ranged_bases:
-            if not rbarracks.active:
-                rbarracks_to_repair = rbarracks
-                break
-
-        if self.need_houses:
-            self.can_produce = False
+        self.need_houses = 0
+        self.can_produce = True
+        try:
+            unrepaired_houses = []
+            for house in game.my_houses:
+                if not house.active:
+                    unrepaired_houses.append(house)
+            unrepaired_houses_ids = []
+            for house in unrepaired_houses:
+                unrepaired_houses_ids.append(house.id)
+            self.houses_in_progress = [house for house in self.houses_in_progress if house.id in unrepaired_houses_ids]
+            for house in unrepaired_houses:
+                if house not in self.houses_in_progress:
+                    self.houses_in_progress.append(house)
+            houses_in_progress_ids = []
+            for house in self.houses_in_progress:
+                houses_in_progress_ids.append(house.id)
+            for task in self.buider_tasks:
+                if (task[2] is not None) and (task[2].id not in houses_in_progress_ids):
+                    task[2] = None
+            if game.my_unit_count > 14 and game.free_unit_slots < 3 and len(self.houses_in_progress) < 2:
+                self.need_houses = 2 - len(self.houses_in_progress)
+            dedicated_rbarracks_builder = 0
+            need_dedicated_house_builders = 0
+            self.dedicated_house_builders = [builder for builder in self.dedicated_house_builders if builder.id in game.my_builder_units_ids]
+            if 14 < game.my_unit_count:
+                need_dedicated_house_builders = 2
+            if len(self.dedicated_house_builders) != need_dedicated_house_builders:
+                self.dedicated_house_builders = []
+                for i in range(need_dedicated_house_builders):
+                    entity = game.my_builder_units.pop(0)
+                    self.dedicated_house_builders.append(entity)
+                    self.buider_tasks[i][0] = entity
+                    self.buider_tasks[i][1] = None
+                    self.buider_tasks[i][2] = None
+            else:
+                for i in range(need_dedicated_house_builders):
+                    game.my_builder_units.pop(0)
+            for rbarracks in game.my_ranged_bases:
+                if not rbarracks.active:
+                    rbarracks_to_repair = rbarracks
+                    break
+            if self.need_houses:
+                self.can_produce = False
+        except:
+            pass
 
         # bases
         try:
@@ -463,46 +465,53 @@ class MyStrategy:
                         move_spot = damap.find_move_spot(builder.position, rbarracks_spot, 5)
                         if move_spot is not None:
                             move_action = MoveAction(move_spot, True, False)
-                        debug_interface.send(DebugCommand.Add(DebugData.Log(f'rbar     : {move_action}, {build_action}')))
                         entity_actions[builder.id] = EntityAction(move_action, build_action, None, None)
         except:
             pass
 
         # building houses
         # repair
-        for house_to_repair in self.houses_in_progress:
-            for task in self.buider_tasks:
-                if house_to_repair not in {self.buider_tasks[0][2], self.buider_tasks[1][2]}:
-                    if task[1] is not None:
-                        if (task[1].position.x == house_to_repair.position.x) and (task[1].position.y == house_to_repair.position.y):
-                            task[1] = None
+        try:
+            for house_to_repair in self.houses_in_progress:
+                for task in self.buider_tasks:
+                    if house_to_repair not in {self.buider_tasks[0][2], self.buider_tasks[1][2]}:
+                        if task[1] is not None:
+                            if (task[1].position.x == house_to_repair.position.x) and (task[1].position.y == house_to_repair.position.y):
+                                task[1] = None
+                        if task[1] is None and task[2] is None:
+                            move_action = None
+                            build_action = None
+                            repair_action = RepairAction(house_to_repair.id)
+                            task[2] = house_to_repair
+                            move_spot = damap.find_move_spot(task[0].position, house_to_repair.position, 3)
+                            if move_spot is not None:
+                                move_action = MoveAction(move_spot, True, False)
+                            entity_action = EntityAction(move_action, None, None, repair_action)
+                            entity_actions[task[0].id] = entity_action
+                            self.commands_this_turn.append(entity_action)
+        except:
+            pass
+        # build
+        try:
+            if self.need_houses:
+                for task in self.buider_tasks:
                     if task[1] is None and task[2] is None:
+                        move_spot = None
                         move_action = None
                         build_action = None
-                        repair_action = RepairAction(house_to_repair.id)
-                        task[2] = house_to_repair
-                        move_spot = damap.find_move_spot(task[0].position, house_to_repair.position, 3)
-                        if move_spot is not None:
-                            move_action = MoveAction(move_spot, True, False)
-                        entity_action = EntityAction(move_action, None, None, repair_action)
-                        entity_actions[task[0].id] = entity_action
-        # build
-        if self.need_houses:
-            for task in self.buider_tasks:
-                if task[1] is None and task[2] is None:
-                    move_spot = None
-                    move_action = None
-                    build_action = None
-                    repair_action = None
-                    house_spot = damap.find_building_spot(3, task[0].position)
-                    if house_spot is not None:
-                        build_action = BuildAction(EntityType.HOUSE, house_spot)
-                        move_spot = damap.find_move_spot(task[0].position, house_spot, 3)
-                        if move_spot is not None:
-                            move_action = MoveAction(move_spot, True, False)
-                        task[1] = build_action
-                        entity_action = EntityAction(move_action, build_action, None, None)
-                        entity_actions[task[0].id] = entity_action
+                        repair_action = None
+                        house_spot = damap.find_building_spot(3, task[0].position)
+                        if house_spot is not None:
+                            build_action = BuildAction(EntityType.HOUSE, house_spot)
+                            move_spot = damap.find_move_spot(task[0].position, house_spot, 3)
+                            if move_spot is not None:
+                                move_action = MoveAction(move_spot, True, False)
+                            task[1] = build_action
+                            entity_action = EntityAction(move_action, build_action, None, None)
+                            entity_actions[task[0].id] = entity_action
+                            self.commands_this_turn.append(entity_action)
+        except:
+            pass
 
         self.times.append(time.time()-tstmp)
         tstmp = time.time()
@@ -534,5 +543,10 @@ class MyStrategy:
         #    debug_interface.send(DebugCommand.Add(DebugData.Log(f'Resourses: {self.times[4]*1000:.2f}')))
         # if len(self.workers) > 0:
         #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'Workers: {self.workers}')))
-        debug_interface.send(DebugCommand.Add(DebugData.Log(f'can_produce: {self.can_produce}')))
+        # debug_interface.send(DebugCommand.Add(DebugData.Log(f'can_produce: {self.can_produce}')))
+        # debug_interface.send(DebugCommand.Add(DebugData.Log(f'need_houses: {self.need_houses}')))
+        # debug_interface.send(DebugCommand.Add(DebugData.Log(f'houses_in_progress: {self.houses_in_progress}')))
+        # debug_interface.send(DebugCommand.Add(DebugData.Log(f'buider_tasks: {self.buider_tasks}')))
+        # for command in self.commands_this_turn:
+        #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'command: {command}')))
         debug_interface.get_state()
