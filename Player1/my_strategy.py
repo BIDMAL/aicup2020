@@ -3,6 +3,8 @@ from model import DebugCommand, DebugData
 from model import EntityType, Vec2Int
 import time
 
+# TODO better melee/range ratio
+# TODO build turrets..
 # TODO store state for gatherers (same as for building houses)
 # TODO stop searching by attack_range, not const 1
 # TODO break walls?
