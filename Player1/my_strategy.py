@@ -328,6 +328,7 @@ class MyStrategy:
 
         # calcs for building repair
         rbarracks_to_repair = None
+        mbarracks_to_repair = None
         self.need_houses = 0
         self.can_produce = True
         try:
@@ -369,6 +370,10 @@ class MyStrategy:
             for rbarracks in game.my_ranged_bases:
                 if not rbarracks.active:
                     rbarracks_to_repair = rbarracks
+                    break
+            for mbarracks in game.my_melee_bases:
+                if not mbarracks.active:
+                    mbarracks_to_repair = mbarracks
                     break
             if self.need_houses:
                 self.can_produce = False
@@ -445,7 +450,8 @@ class MyStrategy:
         tstmp = time.time()
         # building RB
         try:
-            if (rbarracks_to_repair is not None) or (len(game.my_builder_units) > 20 and len(game.my_ranged_bases) < 2 and game.my_resource_count > 400):
+
+            if (rbarracks_to_repair is not None) or (len(game.my_builder_units) > 20 and len(game.my_ranged_bases) < 2 and game.my_resource_count > 440):
                 dedicated_rbarracks_builder = 1
                 builder = game.my_builder_units[0]
                 move_spot = None
@@ -463,6 +469,27 @@ class MyStrategy:
                     if rbarracks_spot is not None:
                         build_action = BuildAction(EntityType.RANGED_BASE, rbarracks_spot)
                         move_spot = damap.find_move_spot(builder.position, rbarracks_spot, 5)
+                        if move_spot is not None:
+                            move_action = MoveAction(move_spot, True, False)
+                        entity_actions[builder.id] = EntityAction(move_action, build_action, None, None)
+            elif (mbarracks_to_repair is not None) or (len(game.my_builder_units) > 20 and len(game.my_melee_bases) < 1 and game.my_resource_count > 440):
+                dedicated_rbarracks_builder = 1
+                builder = game.my_builder_units[0]
+                move_spot = None
+                move_action = None
+                build_action = None
+                repair_action = None
+                if mbarracks_to_repair is not None:
+                    repair_action = RepairAction(mbarracks_to_repair.id)
+                    move_spot = damap.find_move_spot(builder.position, mbarracks_to_repair.position, 5)
+                    if move_spot is not None:
+                        move_action = MoveAction(move_spot, True, False)
+                    entity_actions[builder.id] = EntityAction(move_action, None, None, repair_action)
+                else:
+                    mbarracks_spot = damap.find_building_spot(6, builder.position)
+                    if mbarracks_spot is not None:
+                        build_action = BuildAction(EntityType.MELEE_BASE, mbarracks_spot)
+                        move_spot = damap.find_move_spot(builder.position, mbarracks_spot, 5)
                         if move_spot is not None:
                             move_action = MoveAction(move_spot, True, False)
                         entity_actions[builder.id] = EntityAction(move_action, build_action, None, None)
