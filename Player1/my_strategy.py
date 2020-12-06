@@ -385,7 +385,7 @@ class MyStrategy:
             # melee bases
             for my_melee_base in game.my_melee_bases:
                 build_action = None
-                if self.can_produce and game.my_resource_count >= 20 and len(game.my_ranged_units) > len(game.my_melee_units) + 20:
+                if self.can_produce and game.my_resource_count >= 20 and ((len(game.my_ranged_units) > len(game.my_melee_units) + 20) or len(game.my_ranged_bases) == 0):
                     position = Vec2Int(my_melee_base.position.x+game.orientation[0], my_melee_base.position.y+game.orientation[1])
                     build_action = BuildAction(EntityType.MELEE_UNIT, position)
                 entity_actions[my_melee_base.id] = EntityAction(None, build_action, None, None)
