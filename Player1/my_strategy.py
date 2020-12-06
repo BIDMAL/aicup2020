@@ -59,6 +59,7 @@ class Map:
                         available = False
                         break
                     if available:
+                        self.free_map[x][target_pos.y-1] = False
                         return Vec2Int(x, target_pos.y-1)
             except:
                 pass
@@ -70,6 +71,7 @@ class Map:
                     available = False
                     break
                 if available:
+                    self.free_map[x][target_pos.y+target_size] = False
                     return Vec2Int(x, target_pos.y+target_size)
         except:
             pass
@@ -82,6 +84,7 @@ class Map:
                         available = False
                         break
                     if available:
+                        self.free_map[target_pos.x-1][y] = False
                         return Vec2Int(target_pos.x-1, y)
             except:
                 pass
@@ -93,6 +96,7 @@ class Map:
                     available = False
                     break
                 if available:
+                    self.free_map[target_pos.x+target_size][y] = False
                     return Vec2Int(target_pos.x+target_size, y)
         except:
             pass
