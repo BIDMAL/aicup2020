@@ -3,7 +3,7 @@ from model import DebugCommand, DebugData
 from model import EntityType, Vec2Int
 import time
 
-# TODO build melee_base if none
+# TODO store state for gatherers (same as for building houses)
 # TODO stop searching by attack_range, not const 1
 # TODO break walls?
 # TODO self.attack_mode rly needed?
@@ -351,7 +351,6 @@ class MyStrategy:
                     task[2] = None
             if game.my_unit_count > 14 and game.free_unit_slots < 3 and len(self.houses_in_progress) < 2:
                 self.need_houses = 2 - len(self.houses_in_progress)
-            dedicated_rbarracks_builder = 0
             need_dedicated_house_builders = 0
             self.dedicated_house_builders = [builder for builder in self.dedicated_house_builders if builder.id in game.my_builder_units_ids]
             if 14 < game.my_unit_count:
@@ -452,18 +451,22 @@ class MyStrategy:
         try:
 
             if (rbarracks_to_repair is not None) or (len(game.my_builder_units) > 20 and len(game.my_ranged_bases) < 2 and game.my_resource_count > 440):
-                dedicated_rbarracks_builder = 1
-                builder = game.my_builder_units[0]
+                builder = game.my_builder_units.pop(0)
                 move_spot = None
                 move_action = None
                 build_action = None
                 repair_action = None
                 if rbarracks_to_repair is not None:
+                    builder2 = game.my_builder_units.pop(0)
                     repair_action = RepairAction(rbarracks_to_repair.id)
                     move_spot = damap.find_move_spot(builder.position, rbarracks_to_repair.position, 5)
+                    move_spot2 = damap.find_move_spot(builder2.position, rbarracks_to_repair.position, 5)
                     if move_spot is not None:
                         move_action = MoveAction(move_spot, True, False)
+                    if move_spot2 is not None:
+                        move_action2 = MoveAction(move_spot2, True, False)
                     entity_actions[builder.id] = EntityAction(move_action, None, None, repair_action)
+                    entity_actions[builder2.id] = EntityAction(move_action2, None, None, repair_action)
                 else:
                     rbarracks_spot = damap.find_building_spot(6, builder.position)
                     if rbarracks_spot is not None:
@@ -473,18 +476,22 @@ class MyStrategy:
                             move_action = MoveAction(move_spot, True, False)
                         entity_actions[builder.id] = EntityAction(move_action, build_action, None, None)
             elif (mbarracks_to_repair is not None) or (len(game.my_builder_units) > 20 and len(game.my_melee_bases) < 1 and game.my_resource_count > 440):
-                dedicated_rbarracks_builder = 1
-                builder = game.my_builder_units[0]
+                builder = game.my_builder_units.pop(0)
                 move_spot = None
                 move_action = None
                 build_action = None
                 repair_action = None
                 if mbarracks_to_repair is not None:
+                    builder2 = game.my_builder_units.pop(0)
                     repair_action = RepairAction(mbarracks_to_repair.id)
                     move_spot = damap.find_move_spot(builder.position, mbarracks_to_repair.position, 5)
+                    move_spot2 = damap.find_move_spot(builder2.position, mbarracks_to_repair.position, 5)
                     if move_spot is not None:
                         move_action = MoveAction(move_spot, True, False)
+                    if move_spot2 is not None:
+                        move_action2 = MoveAction(move_spot2, True, False)
                     entity_actions[builder.id] = EntityAction(move_action, None, None, repair_action)
+                    entity_actions[builder2.id] = EntityAction(move_action2, None, None, repair_action)
                 else:
                     mbarracks_spot = damap.find_building_spot(6, builder.position)
                     if mbarracks_spot is not None:
@@ -545,7 +552,7 @@ class MyStrategy:
 
         # gather resources
         try:
-            for builder in game.my_builder_units[dedicated_rbarracks_builder:]:
+            for builder in game.my_builder_units:
                 cur_pos = builder.position
                 move_action = None
                 attack_action = None
