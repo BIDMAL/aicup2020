@@ -324,8 +324,6 @@ class MyStrategy:
         game = Game(player_view.map_size, player_view.my_id, player_view.players)
         damap = Map(game.parse_entities(player_view.entities))
 
-        # debug_interface.send(DebugCommand.Add(DebugData.Log(f'Total res: {len(game.resources)}')))
-        # debug_interface.send(DebugCommand.Add(DebugData.Log(f'Obt res  : {len(game.obtainable_resources)}')))
         self.times.append(time.time()-tstmp)
         tstmp = time.time()
 
@@ -340,8 +338,12 @@ class MyStrategy:
         for house in unrepaired_houses:
             if house not in self.houses_in_progress:
                 self.houses_in_progress.append(house)
+
+        houses_in_progress_ids = []
+        for house in self.houses_in_progress:
+            houses_in_progress_ids.append(house.id)
         for task in self.buider_tasks:
-            if (task[2] is not None) and (task[2] not in self.houses_in_progress):
+            if (task[2] is not None) and (task[2].id not in houses_in_progress_ids):
                 task[2] = None
 
         if game.my_unit_count > 14 and game.free_unit_slots < 3 and len(self.houses_in_progress) < 2:
@@ -360,13 +362,15 @@ class MyStrategy:
                 entity = game.my_builder_units.pop(0)
                 self.dedicated_house_builders.append(entity)
                 self.buider_tasks[i][0] = entity
+                self.buider_tasks[i][1] = None
+                self.buider_tasks[i][2] = None
 
         for rbarracks in game.my_ranged_bases:
             if not rbarracks.active:
                 rbarracks_to_repair = rbarracks
                 break
-        building_not_in_progress = len(self.houses_in_progress) == 0
-        if self.need_houses and building_not_in_progress:
+
+        if self.need_houses:
             self.can_produce = False
 
         # bases
@@ -464,13 +468,26 @@ class MyStrategy:
         except:
             pass
 
-        # building a house
-
+        # building houses
+        # repair
+        for house_to_repair in self.houses_in_progress:
+            for task in self.buider_tasks:
+                if house_to_repair not in {self.buider_tasks[0][2], self.buider_tasks[1][2]}:
+                    if task[1] is not None:
+                        if (task[1].position.x == house_to_repair.position.x) and (task[1].position.y == house_to_repair.position.y):
+                            task[1] = None
+                    if task[1] is None and task[2] is None:
+                        move_action = None
+                        build_action = None
+                        repair_action = RepairAction(house_to_repair.id)
+                        task[2] = house_to_repair
+                        move_spot = damap.find_move_spot(task[0].position, house_to_repair.position, 3)
+                        if move_spot is not None:
+                            move_action = MoveAction(move_spot, True, False)
+                        entity_action = EntityAction(move_action, None, None, repair_action)
+                        entity_actions[task[0].id] = entity_action
         # build
-        # debug_interface.send(DebugCommand.Add(DebugData.Log(f'self.need_houses: {self.need_houses}')))
-        # print(self.dedicated_house_builders)
         if self.need_houses:
-            # debug_interface.send(DebugCommand.Add(DebugData.Log(f'builder: {builder}')))
             for task in self.buider_tasks:
                 if task[1] is None and task[2] is None:
                     move_spot = None
@@ -483,25 +500,9 @@ class MyStrategy:
                         move_spot = damap.find_move_spot(task[0].position, house_spot, 3)
                         if move_spot is not None:
                             move_action = MoveAction(move_spot, True, False)
-                        task[1] = move_action
-                        entity_actions[task[0].id] = EntityAction(move_action, build_action, None, None)
-
-        for house_to_repair in self.houses_in_progress:
-            for task in self.buider_tasks:
-                if house_to_repair not in {self.buider_tasks[0][2], self.buider_tasks[1][2]}:
-                    if task[2] is None:
-                        move_action = None
-                        build_action = None
-                        repair_action = RepairAction(house_to_repair.id)
-                        task[2] = house_to_repair
-                        task[1] = None
-                        move_spot = damap.find_move_spot(task[0].position, house_to_repair.position, 3)
-                        if move_spot is not None:
-                            move_action = MoveAction(move_spot, True, False)
-                        entity_actions[task[0].id] = EntityAction(move_action, None, None, repair_action)
-
-        for i in range(len(self.dedicated_house_builders)):
-            print(f"{i}: {entity_actions[self.dedicated_house_builders[i].id]}")
+                        task[1] = build_action
+                        entity_action = EntityAction(move_action, build_action, None, None)
+                        entity_actions[task[0].id] = entity_action
 
         self.times.append(time.time()-tstmp)
         tstmp = time.time()
@@ -520,8 +521,7 @@ class MyStrategy:
         except:
             pass
         self.times.append(time.time()-tstmp)
-        # debug_interface.send(DebugCommand.Add(DebugData.Log(f'entity_actions: {entity_actions}')))
-        # print(entity_actions)
+
         return Action(entity_actions)
 
     def debug_update(self, player_view, debug_interface):
