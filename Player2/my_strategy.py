@@ -309,7 +309,7 @@ class MyStrategy:
         self.houses_in_progress = []
         self.dedicated_house_builders = []
         self.can_produce = None
-        self.buider_tasks = [[None, None, None], [None, None, None]]
+        self.buider_tasks = [[None, None, None], [None, None, None], [None, None, None]]
 
     def get_action(self, player_view, debug_interface):
 
@@ -344,8 +344,10 @@ class MyStrategy:
                 self.need_houses = 2 - len(self.houses_in_progress)
             need_dedicated_house_builders = 0
             self.dedicated_house_builders = [builder for builder in self.dedicated_house_builders if builder.id in game.my_builder_units_ids]
-            if 14 < game.my_unit_count:
-                need_dedicated_house_builders = 2
+            if game.my_unit_count > 14:
+                need_dedicated_house_builders = 3
+                if game.my_food_count > 100:
+                    need_dedicated_house_builders = 2
             if len(self.dedicated_house_builders) != need_dedicated_house_builders:
                 self.dedicated_house_builders = []
                 for i in range(need_dedicated_house_builders):
@@ -513,7 +515,7 @@ class MyStrategy:
         # build
         try:
             if self.need_houses:
-                for task in self.buider_tasks:
+                for task in self.buider_tasks[:2]:
                     if task[1] is None and task[2] is None:
                         move_spot = None
                         move_action = None
