@@ -588,6 +588,6 @@ class MyStrategy:
         # debug_interface.send(DebugCommand.Add(DebugData.Log(f'need_houses: {self.need_houses}')))
         # debug_interface.send(DebugCommand.Add(DebugData.Log(f'houses_in_progress: {self.houses_in_progress}')))
         # debug_interface.send(DebugCommand.Add(DebugData.Log(f'buider_tasks: {self.buider_tasks}')))
-        # for command in self.commands_this_turn:
-        #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'command: {command}')))
+        for command in self.commands_this_turn:
+            debug_interface.send(DebugCommand.Add(DebugData.Log(f'command: {command}')))
         debug_interface.get_state()
