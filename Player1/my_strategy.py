@@ -3,6 +3,9 @@ from model import DebugCommand, DebugData
 from model import EntityType, Vec2Int
 import time
 
+# TODO revise when to build army (on low limits only miners being produced)
+# TODO try sending troops in packs
+# TODO try better melee/range ratio
 # TODO better find_move_spot - closest
 # TODO better melee/range ratio
 # TODO build turrets..
