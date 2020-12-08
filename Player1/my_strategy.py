@@ -4,7 +4,6 @@ from model import EntityType, Vec2Int
 import time
 
 # TODO try sending troops in packs
-# TODO better find_move_spot - closest
 # TODO build turrets..
 # TODO store state for miners (same as for building houses)
 # TODO stop searching by attack_range, not const 1
@@ -30,7 +29,7 @@ class Calc:
 
     @staticmethod
     def find_closest(cur_pos, targets, max_dist, available=None):
-        dist = max_dist
+        dist = max_dist**2
         closest_target = None
         for target in targets:
             if available is not None:
@@ -44,6 +43,19 @@ class Calc:
                     break
         return dist, closest_target.id, closest_target.position
 
+    @staticmethod
+    def find_closest_pos(cur_pos, targets, max_dist):
+        dist = max_dist**2
+        closest_target = None
+        for target in targets:
+            cur_dist = (cur_pos.x - target[0])**2 + (cur_pos.y - target[1])**2
+            if cur_dist < dist:
+                dist = cur_dist
+                closest_target = target
+                if dist < 2:
+                    break
+        return dist, closest_target[0], closest_target[1]
+
 
 class Map:
     def __init__(self, input):
@@ -53,59 +65,47 @@ class Map:
 
     def find_move_spot(self, unit_pos, target_pos, target_size):
         # bottom
-        available = True
+        available_spots = []
         if target_pos.y-1 >= 0:
             try:
                 for x in range(target_pos.x, target_pos.x+target_size):
-                    if not self.free_map[x][target_pos.y-1]:
-                        available = False
-                        break
-                    if available:
-                        self.free_map[x][target_pos.y-1] = False
-                        return Vec2Int(x, target_pos.y-1)
+                    if self.free_map[x][target_pos.y-1]:
+                        available_spots.append((x, target_pos.y-1))
             except:
                 pass
         # upper
-        available = True
-        try:
-            for x in range(target_pos.x, target_pos.x+target_size):
-                if not self.free_map[x][target_pos.y+target_size]:
-                    available = False
-                    break
-                if available:
-                    self.free_map[x][target_pos.y+target_size] = False
-                    return Vec2Int(x, target_pos.y+target_size)
-        except:
-            pass
+        if target_pos.y+target_size < self.map_size:
+            try:
+                for x in range(target_pos.x, target_pos.x+target_size):
+                    if self.free_map[x][target_pos.y+target_size]:
+                        available_spots.append((x, target_pos.y+target_size))
+            except:
+                pass
         # left
         if target_pos.x-1 >= 0:
-            available = True
             try:
                 for y in range(target_pos.y, target_pos.y+target_size):
-                    if not self.free_map[target_pos.x-1][y]:
-                        available = False
-                        break
-                    if available:
-                        self.free_map[target_pos.x-1][y] = False
-                        return Vec2Int(target_pos.x-1, y)
+                    if self.free_map[target_pos.x-1][y]:
+                        available_spots.append((target_pos.x-1, y))
             except:
                 pass
         # right
-        available = True
-        try:
-            for y in range(target_pos.y, target_pos.y+target_size):
-                if not self.free_map[target_pos.x+target_size][y]:
-                    available = False
-                    break
-                if available:
-                    self.free_map[target_pos.x+target_size][y] = False
-                    return Vec2Int(target_pos.x+target_size, y)
-        except:
-            pass
+        if target_pos.x+target_size < self.map_size:
+            try:
+                for y in range(target_pos.y, target_pos.y+target_size):
+                    if self.free_map[target_pos.x+target_size][y]:
+                        available_spots.append((target_pos.x+target_size, y))
+            except:
+                pass
 
-        return None
+        target_pos = None
+        if len(available_spots):
+            dist, x, y = Calc.find_closest_pos(unit_pos, available_spots, self.map_size)
+            target_pos = Vec2Int(x, y)
+            self.free_map[x][y] = False
+        return target_pos
 
-    def find_building_spot(self, size, builder_position):
+    def find_building_spot(self, size, builder_position, builder_num=1):
         start_x = 0
         start_y = 0
         increment_x = 1
@@ -121,8 +121,8 @@ class Map:
                 start_y = self.map_size - size
                 increment_y = -1
 
-        for z in range(0, self.map_size - size, size+1):
-            for xy in range(0, z, size+1):
+        for z in range(0, self.map_size - size, size+2):
+            for xy in range(0, z, size+2):
                 x = start_x + increment_x * z
                 y = start_y + increment_y * xy
                 available = True
@@ -320,7 +320,7 @@ class MyStrategy:
         self.can_produce = None
         self.buider_tasks = [[None, None, None], [None, None, None], [None, None, None]]
 
-    def precalc(self, game):
+    def precalc(self, game, damap):
         rbarracks_to_repair = None
         mbarracks_to_repair = None
         self.need_houses = 0
@@ -342,6 +342,10 @@ class MyStrategy:
         for task in self.buider_tasks:
             if (task[2] is not None) and (task[2].id not in houses_in_progress_ids):
                 task[2] = None
+                task[1] = None
+            if task[1] is not None:
+                damap.free_map[task[1].position.x][task[1].position.y]
+
         if game.my_food_count > 20 and game.my_unit_count < 16:
             self.need_houses = 0
         elif game.my_unit_count > 14 and game.free_unit_slots < 3 and len(self.houses_in_progress) < 2:
@@ -546,44 +550,44 @@ class MyStrategy:
         self.times.append(time.time()-tstmp)
         tstmp = time.time()
 
-        try:
-            mbarracks_to_repair, rbarracks_to_repair = self.precalc(game)
-        except:
-            mbarracks_to_repair, rbarracks_to_repair = 0, 0
+        # try:
+        mbarracks_to_repair, rbarracks_to_repair = self.precalc(game, damap)
+        # except:
+        #    mbarracks_to_repair, rbarracks_to_repair = 0, 0
 
-        try:
-            self.command_prod(game, entity_actions)
-        except:
-            pass
-
-        self.times.append(time.time()-tstmp)
-        tstmp = time.time()
-
-        try:
-            self.command_army(game, entity_actions)
-        except:
-            pass
+        # try:
+        self.command_prod(game, entity_actions)
+        # except:
+        #    pass
 
         self.times.append(time.time()-tstmp)
         tstmp = time.time()
 
-        try:
-            self.command_build_prod(game, damap, entity_actions, mbarracks_to_repair, rbarracks_to_repair)
-        except:
-            pass
-
-        try:
-            self.command_build_houses(game, damap, entity_actions)
-        except:
-            pass
+        # try:
+        self.command_army(game, entity_actions)
+        # except:
+        #    pass
 
         self.times.append(time.time()-tstmp)
         tstmp = time.time()
 
-        try:
-            self.command_miners(game, entity_actions)
-        except:
-            pass
+        # try:
+        self.command_build_prod(game, damap, entity_actions, mbarracks_to_repair, rbarracks_to_repair)
+        # except:
+        #    pass
+
+        # try:
+        self.command_build_houses(game, damap, entity_actions)
+        # except:
+        #    pass
+
+        self.times.append(time.time()-tstmp)
+        tstmp = time.time()
+
+        # try:
+        self.command_miners(game, entity_actions)
+        # except:
+        #    pass
 
         self.times.append(time.time()-tstmp)
 
