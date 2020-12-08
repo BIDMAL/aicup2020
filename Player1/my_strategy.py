@@ -6,9 +6,8 @@ import time
 # TODO try sending troops in packs
 # TODO better find_move_spot - closest
 # TODO build turrets..
-# TODO store state for gatherers (same as for building houses)
+# TODO store state for miners (same as for building houses)
 # TODO stop searching by attack_range, not const 1
-# TODO break walls?
 # TODO self.attack_mode rly needed?
 
 
