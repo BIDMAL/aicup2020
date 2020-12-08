@@ -396,8 +396,8 @@ class MyStrategy:
         for my_builder_base in game.my_builder_bases:
             build_action = None
             cond1 = self.can_produce and game.my_resource_count >= 10 and len(game.my_builder_units) <= 36 and (
-                len(game.my_builder_units) <= game.my_food_count // 2 + 2) and len(game.my_builder_units) <= len(game.resources) // 2
-            cond2 = game.my_resource_count >= 10 and len(game.my_builder_units) < 16 and len(game.my_builder_units) <= len(game.resources) // 2
+                len(game.my_builder_units) <= game.my_unit_count // 2 + 2) and (len(game.my_builder_units) <= len(game.resources) // 2)
+            cond2 = game.my_resource_count >= 10 and game.my_food_count < 20 and len(game.my_builder_units) <= len(game.resources) // 2
             if cond1 or cond2:
                 position = Vec2Int(my_builder_base.position.x+game.orientation[0], my_builder_base.position.y+game.orientation[1])
                 build_action = BuildAction(EntityType.BUILDER_UNIT, position)
