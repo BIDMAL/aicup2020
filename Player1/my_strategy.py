@@ -388,6 +388,10 @@ class MyStrategy:
                     break
             if self.need_houses:
                 self.can_produce = False
+            if len(game.my_army) < 5 and (len(game.my_ranged_bases) > 0 or len(game.my_melee_bases) > 0) and len(game.my_builder_units) > 0:
+                self.attack_mode = False
+            elif len(game.my_army) > 8:
+                self.attack_mode = True
         except:
             pass
 
@@ -396,7 +400,7 @@ class MyStrategy:
             # melee bases
             for my_melee_base in game.my_melee_bases:
                 build_action = None
-                if self.can_produce and game.my_resource_count >= 20 and ((len(game.my_ranged_units) > len(game.my_melee_units) + 20) or len(game.my_ranged_bases) == 0):
+                if self.can_produce and game.my_resource_count >= 20 and ((len(game.my_ranged_units) > len(game.my_melee_units) + 10) or len(game.my_ranged_bases) == 0):
                     position = Vec2Int(my_melee_base.position.x+game.orientation[0], my_melee_base.position.y+game.orientation[1])
                     build_action = BuildAction(EntityType.MELEE_UNIT, position)
                 entity_actions[my_melee_base.id] = EntityAction(None, build_action, None, None)
@@ -426,11 +430,6 @@ class MyStrategy:
 
         # army
         try:
-            if len(game.my_army) < 5 and len(game.my_ranged_bases) > 0 and len(game.my_builder_units) > 0:
-                self.attack_mode = False
-            elif len(game.my_army) > 8:
-                self.attack_mode = True
-
             for battle_ship in game.my_army:
                 cur_pos = battle_ship.position
                 move_action = None
@@ -581,12 +580,12 @@ class MyStrategy:
 
     def debug_update(self, player_view, debug_interface):
         debug_interface.send(DebugCommand.Clear())
-        # if len(self.times) > 0:
-        #    debug_interface.send(DebugCommand.Add(DebugData.Log(f'Init     : {self.times[0]*1000:.2f}')))
-        #    debug_interface.send(DebugCommand.Add(DebugData.Log(f'Bases    : {self.times[1]*1000:.2f}')))
-        #    debug_interface.send(DebugCommand.Add(DebugData.Log(f'Army     : {self.times[2]*1000:.2f}')))
-        #    debug_interface.send(DebugCommand.Add(DebugData.Log(f'Constract: {self.times[3]*1000:.2f}')))
-        #    debug_interface.send(DebugCommand.Add(DebugData.Log(f'Resourses: {self.times[4]*1000:.2f}')))
+        if len(self.times) > 0:
+            debug_interface.send(DebugCommand.Add(DebugData.Log(f'Init     : {self.times[0]*1000:.2f}')))
+            debug_interface.send(DebugCommand.Add(DebugData.Log(f'Bases    : {self.times[1]*1000:.2f}')))
+            debug_interface.send(DebugCommand.Add(DebugData.Log(f'Army     : {self.times[2]*1000:.2f}')))
+            debug_interface.send(DebugCommand.Add(DebugData.Log(f'Constract: {self.times[3]*1000:.2f}')))
+            debug_interface.send(DebugCommand.Add(DebugData.Log(f'Resourses: {self.times[4]*1000:.2f}')))
         # if len(self.workers) > 0:
         #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'Workers: {self.workers}')))
         # debug_interface.send(DebugCommand.Add(DebugData.Log(f'can_produce: {self.can_produce}')))
