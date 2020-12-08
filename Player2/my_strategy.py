@@ -332,7 +332,9 @@ class MyStrategy:
         for task in self.buider_tasks:
             if (task[2] is not None) and (task[2].id not in houses_in_progress_ids):
                 task[2] = None
-        if game.my_unit_count > 14 and game.free_unit_slots < 3 and len(self.houses_in_progress) < 2:
+        if game.my_food_count > 20 and game.my_unit_count < 16:
+            self.need_houses = 0
+        elif game.my_unit_count > 14 and game.free_unit_slots < 3 and len(self.houses_in_progress) < 2:
             self.need_houses = 2 - len(self.houses_in_progress)
         need_dedicated_house_builders = 0
         self.dedicated_house_builders = [builder for builder in self.dedicated_house_builders if builder.id in game.my_builder_units_ids]
