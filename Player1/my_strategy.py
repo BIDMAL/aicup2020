@@ -358,11 +358,11 @@ class MyStrategy:
 
         if game.my_food_count > 20 and game.my_unit_count < 16:
             self.need_houses = 0
-        elif game.my_unit_count > 14 and game.free_unit_slots < 3 and len(self.houses_in_progress) < 2:
+        elif game.my_unit_count > 13 and game.free_unit_slots < 4 and len(self.houses_in_progress) < 3:
             self.need_houses = 2 - len(self.houses_in_progress)
         need_dedicated_house_builders = 0
         self.dedicated_house_builders = [builder for builder in self.dedicated_house_builders if builder.id in game.my_builder_units_ids]
-        if game.my_unit_count > 14:
+        if game.my_unit_count > 13:
             need_dedicated_house_builders = 3
             if game.my_food_count > 100:
                 need_dedicated_house_builders = 2
@@ -422,13 +422,13 @@ class MyStrategy:
         # for miner_task in self.miner_tasks:
         #    if miner_task[0] is not None and miner_task[0] not in self.b
 
-        cond1 = self.need_houses and (game.my_resource_count < 50 + len(game.my_houses))
+        cond1 = self.need_houses and (game.my_resource_count < self.need_houses*(50 + len(game.my_houses)))
         cond2 = self.need_prod and game.my_resource_count < 500
         if cond1 or cond2:
             self.can_produce = False
-        if len(game.my_army) < (4 + len(game.my_houses)//2) and (len(game.my_ranged_bases) > 0 or len(game.my_melee_bases) > 0) and len(game.my_builder_units) > 0:
+        if len(game.my_army) < (6 + len(game.my_houses)//2) and (len(game.my_ranged_bases) > 0 or len(game.my_melee_bases) > 0) and len(game.my_builder_units) > 0:
             self.attack_mode = False
-        elif len(game.my_army) > (6 + len(game.my_houses)//2):
+        elif len(game.my_army) > (10 + len(game.my_houses)//2):
             self.attack_mode = True
 
     def command_prod(self, game, entity_actions):
@@ -451,7 +451,7 @@ class MyStrategy:
         # main base
         for my_builder_base in game.my_builder_bases:
             build_action = None
-            cond1 = self.can_produce and game.my_resource_count >= 10 and len(game.my_builder_units) <= 36 and (
+            cond1 = self.can_produce and game.my_resource_count >= 10 and len(game.my_builder_units) <= 40 and (
                 len(game.my_builder_units) <= game.my_unit_count // 2 + 2) and (len(game.my_builder_units) <= len(game.resources) // 2)
             cond2 = game.my_resource_count >= 10 and game.my_food_count < 20 and len(game.my_builder_units) <= len(game.resources) // 2
             if cond1 or cond2:
@@ -476,7 +476,7 @@ class MyStrategy:
                     dist, attack_target, move_target = Calc.find_closest(cur_pos, game.enemy_buildings, game.map_size**2)
             if move_target is not None:
                 move_action = MoveAction(move_target, True, True)
-                attack_action = AttackAction(attack_target, AutoAttack(20, []))
+                attack_action = AttackAction(attack_target, AutoAttack(30, []))
             entity_actions[battle_ship.id] = EntityAction(move_action, None, attack_action, None)
 
         for turret in game.my_turrets:
@@ -563,6 +563,9 @@ class MyStrategy:
                         entity_action = EntityAction(move_action, build_action, None, None)
                         entity_actions[task[0].id] = entity_action
                         self.commands_this_turn.append(entity_action)
+                    # if build_action is not None:
+                    #     self.house_buider_tasks[-1][1] = build_action
+                    #     entity_actions[self.house_buider_tasks[-1][0].id] = entity_action
 
     def command_miners(self, game, entity_actions):
         for builder in game.my_builder_units:
