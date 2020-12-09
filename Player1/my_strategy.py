@@ -329,7 +329,7 @@ class MyStrategy:
         self.prod_buider_tasks = [[None, None, None], [None, None, None], [None, None, None], [None, None, None], [None, None, None]]
         self.miner_tasks = []
 
-    def precalc(self, game, damap):
+    def precalc(self, game, damap, entity_actions):
         self.need_houses = 0
         self.need_prod = 0
         self.can_produce = True
@@ -352,6 +352,7 @@ class MyStrategy:
             if (task[2] is not None) and (task[2].id not in houses_in_progress_ids):
                 task[2] = None
                 task[1] = None
+                entity_actions[task[0].id] = EntityAction(None, None, None, None)
             if task[1] is not None:
                 damap.free_map[task[1].position.x][task[1].position.y]
 
@@ -596,7 +597,7 @@ class MyStrategy:
         tstmp = time.time()
 
         # try:
-        self.precalc(game, damap)
+        self.precalc(game, damap, entity_actions)
         # except:
         #    mbarracks_to_repair, rbarracks_to_repair = 0, 0
 
@@ -650,9 +651,9 @@ class MyStrategy:
         #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'Workers: {self.workers}')))
         # debug_interface.send(DebugCommand.Add(DebugData.Log(f'can_produce: {self.can_produce}')))
         # debug_interface.send(DebugCommand.Add(DebugData.Log(f'need_houses: {self.need_houses}')))
-        # debug_interface.send(DebugCommand.Add(DebugData.Log(f'houses_in_progress: {self.houses_in_progress}')))
-        # for task in self.house_buider_tasks:
-        #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'house_buider_tasks: {task}')))
+        debug_interface.send(DebugCommand.Add(DebugData.Log(f'houses_in_progress: {self.houses_in_progress}')))
+        for task in self.house_buider_tasks:
+            debug_interface.send(DebugCommand.Add(DebugData.Log(f'house_buider_tasks: {task}')))
         for command in self.commands_this_turn:
             debug_interface.send(DebugCommand.Add(DebugData.Log(f'command: {command}')))
         debug_interface.get_state()
