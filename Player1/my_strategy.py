@@ -282,22 +282,6 @@ class Game:
 
         self.orientation = (-1, 0)
         self.def_point = (17, 17)
-        # half = self.map_size // 2
-        # if len(self.my_builder_bases):
-        #     position = self.my_builder_bases[0].position
-        #     if position.x > half:
-        #         if position.y > half:
-        #             self.orientation = (-1, 0)
-        #             self.def_point = (self.map_size-12, self.map_size-12)
-        #         else:
-        #             self.orientation = (-1, 4)
-        #             self.def_point = (self.map_size-12, 12)
-        #     elif position.y > half:
-        #         self.orientation = (5, 0)
-        #         self.def_point = (12, self.map_size-12)
-        #     else:
-        #         self.orientation = (5, 4)
-        #         self.def_point = (12, 12)
 
         try:
             self.obtainable_resources.sort(key=lambda res: (res.position.x-self.def_point[0])**2 + (res.position.y-self.def_point[1])**2)
