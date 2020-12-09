@@ -3,10 +3,10 @@ from model import DebugCommand, DebugData
 from model import EntityType, Vec2Int
 import time
 
+# TODO store move_actions and include each turn in free_spots
 # TODO try sending troops in packs
 # TODO build turrets..
 # TODO store state for miners (same as for building houses)
-# TODO stop searching by attack_range, not const 1
 # TODO self.attack_mode rly needed?
 
 
