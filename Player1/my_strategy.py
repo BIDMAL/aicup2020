@@ -322,11 +322,11 @@ class MyStrategy:
         self.houses_in_progress = []
         self.dedicated_house_builders = []
         self.can_produce = None
-        self.house_buider_tasks = [[None, None, None], [None, None, None], [None, None, None]]
+        self.house_buider_tasks = [[None, None, None], [None, None, None], [None, None, None], [None, None, None]]
         self.need_prod = 0
         self.prod_in_progress = []
         self.dedicated_prod_builders = []
-        self.prod_buider_tasks = [[None, None, None], [None, None, None]]
+        self.prod_buider_tasks = [[None, None, None], [None, None, None], [None, None, None], [None, None, None], [None, None, None]]
         self.miner_tasks = []
 
     def precalc(self, game, damap):
@@ -343,12 +343,11 @@ class MyStrategy:
         for house in unrepaired_houses:
             unrepaired_houses_ids.append(house.id)
         self.houses_in_progress = [house for house in self.houses_in_progress if house.id in unrepaired_houses_ids]
+        houses_in_progress_ids = [house.id for house in self.houses_in_progress]
         for house in unrepaired_houses:
-            if house not in self.houses_in_progress:
+            if house.id not in houses_in_progress_ids:
+                houses_in_progress_ids.append(house.id)
                 self.houses_in_progress.append(house)
-        houses_in_progress_ids = []
-        for house in self.houses_in_progress:
-            houses_in_progress_ids.append(house.id)
         for task in self.house_buider_tasks:
             if (task[2] is not None) and (task[2].id not in houses_in_progress_ids):
                 task[2] = None
@@ -358,12 +357,12 @@ class MyStrategy:
 
         if game.my_food_count > 20 and game.my_unit_count < 16:
             self.need_houses = 0
-        elif game.my_unit_count > 13 and game.free_unit_slots < 4 and len(self.houses_in_progress) < 3:
+        elif game.my_unit_count > 13 and game.free_unit_slots < 6 and len(self.houses_in_progress) < 2:
             self.need_houses = 2 - len(self.houses_in_progress)
         need_dedicated_house_builders = 0
         self.dedicated_house_builders = [builder for builder in self.dedicated_house_builders if builder.id in game.my_builder_units_ids]
         if game.my_unit_count > 13:
-            need_dedicated_house_builders = 3
+            need_dedicated_house_builders = 4
             if game.my_food_count > 100:
                 need_dedicated_house_builders = 2
         if len(self.dedicated_house_builders) != need_dedicated_house_builders:
@@ -529,22 +528,28 @@ class MyStrategy:
     def command_build_houses(self, game, damap, entity_actions):
         # repair
         for house_to_repair in self.houses_in_progress:
-            for task in self.house_buider_tasks:
-                if house_to_repair not in {self.house_buider_tasks[0][2], self.house_buider_tasks[1][2]}:
-                    if task[1] is not None:
-                        if (task[1].position.x == house_to_repair.position.x) and (task[1].position.y == house_to_repair.position.y):
-                            task[1] = None
-                    if task[1] is None and task[2] is None:
-                        move_action = None
-                        build_action = None
-                        repair_action = RepairAction(house_to_repair.id)
-                        task[2] = house_to_repair
-                        move_spot = damap.find_move_spot(task[0].position, house_to_repair.position, 3)
-                        if move_spot is not None:
-                            move_action = MoveAction(move_spot, True, False)
-                        entity_action = EntityAction(move_action, None, None, repair_action)
-                        entity_actions[task[0].id] = entity_action
-                        self.commands_this_turn.append(entity_action)
+            for num, task in enumerate(self.house_buider_tasks):
+                if task[1] is not None and task[2] is None:
+                    if (task[1].position.x == house_to_repair.position.x) and (task[1].position.y == house_to_repair.position.y):
+                        task[1] = None
+                if task[1] is None and task[2] is None and self.need_houses:
+                    if num == 0 and self.house_buider_tasks[1][2] is not None:
+                        if self.house_buider_tasks[1][2].id == house_to_repair.id:
+                            continue
+                    elif num == 1 and self.house_buider_tasks[0][2] is not None:
+                        if self.house_buider_tasks[0][2].id == house_to_repair.id:
+                            continue
+                if task[1] is None and task[2] is None:
+                    move_action = None
+                    build_action = None
+                    repair_action = RepairAction(house_to_repair.id)
+                    task[2] = house_to_repair
+                    move_spot = damap.find_move_spot(task[0].position, house_to_repair.position, 3)
+                    if move_spot is not None:
+                        move_action = MoveAction(move_spot, True, False)
+                    entity_action = EntityAction(move_action, None, None, repair_action)
+                    entity_actions[task[0].id] = entity_action
+                    self.commands_this_turn.append(entity_action)
         # build
         if self.need_houses:
             for task in self.house_buider_tasks[:2]:
@@ -646,7 +651,8 @@ class MyStrategy:
         # debug_interface.send(DebugCommand.Add(DebugData.Log(f'can_produce: {self.can_produce}')))
         # debug_interface.send(DebugCommand.Add(DebugData.Log(f'need_houses: {self.need_houses}')))
         # debug_interface.send(DebugCommand.Add(DebugData.Log(f'houses_in_progress: {self.houses_in_progress}')))
-        # debug_interface.send(DebugCommand.Add(DebugData.Log(f'house_buider_tasks: {self.house_buider_tasks}')))
+        # for task in self.house_buider_tasks:
+        #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'house_buider_tasks: {task}')))
         for command in self.commands_this_turn:
             debug_interface.send(DebugCommand.Add(DebugData.Log(f'command: {command}')))
         debug_interface.get_state()
