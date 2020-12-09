@@ -274,23 +274,23 @@ class Game:
         self.my_prod = self.my_melee_bases + self.my_ranged_bases
 
         self.orientation = (-1, 0)
-        self.def_point = (12, 12)
-        half = self.map_size // 2
-        if len(self.my_builder_bases):
-            position = self.my_builder_bases[0].position
-            if position.x > half:
-                if position.y > half:
-                    self.orientation = (-1, 0)
-                    self.def_point = (self.map_size-12, self.map_size-12)
-                else:
-                    self.orientation = (-1, 4)
-                    self.def_point = (self.map_size-12, 12)
-            elif position.y > half:
-                self.orientation = (5, 0)
-                self.def_point = (12, self.map_size-12)
-            else:
-                self.orientation = (5, 4)
-                self.def_point = (12, 12)
+        self.def_point = (17, 17)
+        # half = self.map_size // 2
+        # if len(self.my_builder_bases):
+        #     position = self.my_builder_bases[0].position
+        #     if position.x > half:
+        #         if position.y > half:
+        #             self.orientation = (-1, 0)
+        #             self.def_point = (self.map_size-12, self.map_size-12)
+        #         else:
+        #             self.orientation = (-1, 4)
+        #             self.def_point = (self.map_size-12, 12)
+        #     elif position.y > half:
+        #         self.orientation = (5, 0)
+        #         self.def_point = (12, self.map_size-12)
+        #     else:
+        #         self.orientation = (5, 4)
+        #         self.def_point = (12, 12)
 
         try:
             self.obtainable_resources.sort(key=lambda res: (res.position.x-self.def_point[0])**2 + (res.position.y-self.def_point[1])**2)
@@ -298,9 +298,9 @@ class Game:
             pass
 
         for entity in self.my_prod:
-            self.free_spots[entity.position.x+self.orientation[0]][entity.position.y+self.orientation[1]] = False
+            self.free_spots[entity.position.x+5][entity.position.y+4] = False
         for entity in self.my_builder_bases:
-            self.free_spots[entity.position.x+self.orientation[0]][entity.position.y+self.orientation[1]] = False
+            self.free_spots[entity.position.x+5][entity.position.y+4] = False
 
         return self.free_spots, self.def_point
 
@@ -418,9 +418,9 @@ class MyStrategy:
         cond2 = self.need_prod and game.my_resource_count < 500
         if cond1 or cond2:
             self.can_produce = False
-        if len(game.my_army) < (6 + len(game.my_houses)//2) and (len(game.my_ranged_bases) > 0 or len(game.my_melee_bases) > 0) and len(game.my_builder_units) > 0:
+        if len(game.my_army) < (5 + len(game.my_houses)) and (len(game.my_ranged_bases) > 0 or len(game.my_melee_bases) > 0) and len(game.my_builder_units) > 0:
             self.attack_mode = False
-        elif len(game.my_army) > (10 + len(game.my_houses)//2):
+        elif len(game.my_army) > (10 + len(game.my_houses)):
             self.attack_mode = True
 
     def command_prod(self, game, entity_actions):
@@ -428,7 +428,7 @@ class MyStrategy:
         for my_melee_base in game.my_melee_bases:
             build_action = None
             if self.can_produce and game.my_resource_count >= 20 and ((len(game.my_ranged_units) > len(game.my_melee_units) + 6) or len(game.my_ranged_bases) == 0):
-                position = Vec2Int(my_melee_base.position.x+game.orientation[0], my_melee_base.position.y+game.orientation[1])
+                position = Vec2Int(my_melee_base.position.x+5, my_melee_base.position.y+4)
                 build_action = BuildAction(EntityType.MELEE_UNIT, position)
             entity_actions[my_melee_base.id] = EntityAction(None, build_action, None, None)
 
@@ -436,7 +436,7 @@ class MyStrategy:
         for my_ranged_base in game.my_ranged_bases:
             build_action = None
             if self.can_produce and game.my_resource_count >= 30:
-                position = Vec2Int(my_ranged_base.position.x+game.orientation[0], my_ranged_base.position.y+game.orientation[1])
+                position = Vec2Int(my_ranged_base.position.x+5, my_ranged_base.position.y+4)
                 build_action = BuildAction(EntityType.RANGED_UNIT, position)
             entity_actions[my_ranged_base.id] = EntityAction(None, build_action, None, None)
 
@@ -447,7 +447,7 @@ class MyStrategy:
                 len(game.my_builder_units) <= game.my_unit_count // 2 + 2) and (len(game.my_builder_units) <= len(game.resources) // 2)
             cond2 = game.my_resource_count >= 10 and game.my_food_count < 20 and len(game.my_builder_units) <= len(game.resources) // 2
             if cond1 or cond2:
-                position = Vec2Int(my_builder_base.position.x+game.orientation[0], my_builder_base.position.y+game.orientation[1])
+                position = Vec2Int(my_builder_base.position.x+5, my_builder_base.position.y+4)
                 build_action = BuildAction(EntityType.BUILDER_UNIT, position)
             entity_actions[my_builder_base.id] = EntityAction(None, build_action, None, None)
 
