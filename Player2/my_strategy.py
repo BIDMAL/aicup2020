@@ -188,6 +188,8 @@ class Game:
         self.my_ranged_units = []
         self.resources = []
         self.res_avails = {}
+        self.obtainable_resources = []
+        self.res_ids = []
         self.my_turrets = []
         self.enemy_units = []
         self.enemy_buildings = []
@@ -244,10 +246,10 @@ class Game:
         self.my_builder_units.sort(key=lambda entity: entity.id)
         self.my_houses.sort(key=lambda entity: entity.id)
 
-        self.obtainable_resources = []
         res_coords = set()
         for res in self.resources:
             res_coords.add((res.position.x, res.position.y))
+            self.res_ids.append(res.id)
         for res in self.resources:
             coord = (res.position.x, res.position.y)
             addable = False
@@ -269,13 +271,13 @@ class Game:
         self.free_unit_slots = self.my_food_count - self.my_unit_count
         self.my_army = self.my_melee_units + self.my_ranged_units
 
-        self.my_prod = self.my_builder_bases + self.my_melee_bases + self.my_ranged_bases
+        self.my_prod = self.my_melee_bases + self.my_ranged_bases
 
         self.orientation = (-1, 0)
-        self.def_point = None
+        self.def_point = (12, 12)
         half = self.map_size // 2
-        if len(self.my_prod):
-            position = self.my_prod[0].position
+        if len(self.my_builder_bases):
+            position = self.my_builder_bases[0].position
             if position.x > half:
                 if position.y > half:
                     self.orientation = (-1, 0)
@@ -297,6 +299,8 @@ class Game:
 
         for entity in self.my_prod:
             self.free_spots[entity.position.x+self.orientation[0]][entity.position.y+self.orientation[1]] = False
+        for entity in self.my_builder_bases:
+            self.free_spots[entity.position.x+self.orientation[0]][entity.position.y+self.orientation[1]] = False
 
         return self.free_spots, self.def_point
 
@@ -304,18 +308,25 @@ class Game:
 class MyStrategy:
 
     def __init__(self):
+
         self.attack_mode = False
         self.need_houses = 0
         self.houses_in_progress = []
         self.dedicated_house_builders = []
         self.can_produce = None
-        self.buider_tasks = [[None, None, None], [None, None, None], [None, None, None]]
+        self.house_buider_tasks = [[None, None, None], [None, None, None], [None, None, None], [None, None, None]]
+        self.need_prod = 0
+        self.prod_in_progress = []
+        self.dedicated_prod_builders = []
+        self.prod_buider_tasks = [[None, None, None], [None, None, None], [None, None, None], [None, None, None], [None, None, None]]
+        self.miner_tasks = []
 
     def precalc(self, game, damap):
-        rbarracks_to_repair = None
-        mbarracks_to_repair = None
         self.need_houses = 0
+        self.need_prod = 0
         self.can_produce = True
+
+        # houses
         unrepaired_houses = []
         for house in game.my_houses:
             if not house.active:
@@ -324,13 +335,12 @@ class MyStrategy:
         for house in unrepaired_houses:
             unrepaired_houses_ids.append(house.id)
         self.houses_in_progress = [house for house in self.houses_in_progress if house.id in unrepaired_houses_ids]
+        houses_in_progress_ids = [house.id for house in self.houses_in_progress]
         for house in unrepaired_houses:
-            if house not in self.houses_in_progress:
+            if house.id not in houses_in_progress_ids:
+                houses_in_progress_ids.append(house.id)
                 self.houses_in_progress.append(house)
-        houses_in_progress_ids = []
-        for house in self.houses_in_progress:
-            houses_in_progress_ids.append(house.id)
-        for task in self.buider_tasks:
+        for task in self.house_buider_tasks:
             if (task[2] is not None) and (task[2].id not in houses_in_progress_ids):
                 task[2] = None
                 task[1] = None
@@ -339,12 +349,12 @@ class MyStrategy:
 
         if game.my_food_count > 20 and game.my_unit_count < 16:
             self.need_houses = 0
-        elif game.my_unit_count > 14 and game.free_unit_slots < 3 and len(self.houses_in_progress) < 2:
+        elif game.my_unit_count > 13 and game.free_unit_slots < 6 and len(self.houses_in_progress) < 2:
             self.need_houses = 2 - len(self.houses_in_progress)
         need_dedicated_house_builders = 0
         self.dedicated_house_builders = [builder for builder in self.dedicated_house_builders if builder.id in game.my_builder_units_ids]
-        if game.my_unit_count > 14:
-            need_dedicated_house_builders = 3
+        if game.my_unit_count > 13:
+            need_dedicated_house_builders = 4
             if game.my_food_count > 100:
                 need_dedicated_house_builders = 2
         if len(self.dedicated_house_builders) != need_dedicated_house_builders:
@@ -352,28 +362,65 @@ class MyStrategy:
             for i in range(need_dedicated_house_builders):
                 entity = game.my_builder_units.pop(0)
                 self.dedicated_house_builders.append(entity)
-                self.buider_tasks[i][0] = entity
-                self.buider_tasks[i][1] = None
-                self.buider_tasks[i][2] = None
+                self.house_buider_tasks[i][0] = entity
+                self.house_buider_tasks[i][1] = None
+                self.house_buider_tasks[i][2] = None
         else:
             for i in range(need_dedicated_house_builders):
                 game.my_builder_units.pop(0)
-        for rbarracks in game.my_ranged_bases:
-            if not rbarracks.active:
-                rbarracks_to_repair = rbarracks
-                break
-        for mbarracks in game.my_melee_bases:
-            if not mbarracks.active:
-                mbarracks_to_repair = mbarracks
-                break
-        if self.need_houses:
-            self.can_produce = False
-        if len(game.my_army) < 5 and (len(game.my_ranged_bases) > 0 or len(game.my_melee_bases) > 0) and len(game.my_builder_units) > 0:
-            self.attack_mode = False
-        elif len(game.my_army) > 8:
-            self.attack_mode = True
 
-        return mbarracks_to_repair, rbarracks_to_repair
+        # prod
+        unrepaired_prod = []
+
+        for prod in game.my_prod:
+            if not prod.active:
+                unrepaired_prod.append(prod)
+        unrepaired_prod_ids = []
+        for prod in unrepaired_prod:
+            unrepaired_prod_ids.append(prod.id)
+        self.prod_in_progress = [prod for prod in self.prod_in_progress if prod.id in unrepaired_prod_ids]
+        for prod in unrepaired_prod:
+            if prod not in self.prod_in_progress:
+                self.prod_in_progress.append(prod)
+        prods_in_progress_ids = []
+        for prod in self.prod_in_progress:
+            prods_in_progress_ids.append(prod.id)
+        for task in self.prod_buider_tasks:
+            if (task[2] is not None) and (task[2].id not in prods_in_progress_ids):
+                task[2] = None
+                task[1] = None
+            if task[1] is not None:
+                damap.free_map[task[1].position.x][task[1].position.y]
+
+        if (game.my_resource_count > 400) and (len(game.my_ranged_bases) < 1 or len(game.my_melee_bases) < 1):
+            self.need_prod = 1
+        need_dedicated_prod_builders = 0
+        self.dedicated_prod_builders = [builder for builder in self.dedicated_prod_builders if builder.id in game.my_builder_units_ids]
+        if self.need_prod:
+            need_dedicated_prod_builders = 2
+        if len(self.dedicated_prod_builders) != need_dedicated_prod_builders:
+            self.dedicated_prod_builders = []
+            for i in range(need_dedicated_prod_builders):
+                entity = game.my_builder_units.pop(0)
+                self.dedicated_prod_builders.append(entity)
+                self.prod_buider_tasks[i][0] = entity
+                self.prod_buider_tasks[i][1] = None
+                self.prod_buider_tasks[i][2] = None
+        else:
+            for i in range(need_dedicated_prod_builders):
+                game.my_builder_units.pop(0)
+
+        # for miner_task in self.miner_tasks:
+        #    if miner_task[0] is not None and miner_task[0] not in self.b
+
+        cond1 = self.need_houses and (game.my_resource_count < self.need_houses*(50 + len(game.my_houses)))
+        cond2 = self.need_prod and game.my_resource_count < 500
+        if cond1 or cond2:
+            self.can_produce = False
+        if len(game.my_army) < (6 + len(game.my_houses)//2) and (len(game.my_ranged_bases) > 0 or len(game.my_melee_bases) > 0) and len(game.my_builder_units) > 0:
+            self.attack_mode = False
+        elif len(game.my_army) > (10 + len(game.my_houses)//2):
+            self.attack_mode = True
 
     def command_prod(self, game, entity_actions):
         # melee bases
@@ -395,7 +442,7 @@ class MyStrategy:
         # main base
         for my_builder_base in game.my_builder_bases:
             build_action = None
-            cond1 = self.can_produce and game.my_resource_count >= 10 and len(game.my_builder_units) <= 36 and (
+            cond1 = self.can_produce and game.my_resource_count >= 10 and len(game.my_builder_units) <= 40 and (
                 len(game.my_builder_units) <= game.my_unit_count // 2 + 2) and (len(game.my_builder_units) <= len(game.resources) // 2)
             cond2 = game.my_resource_count >= 10 and game.my_food_count < 20 and len(game.my_builder_units) <= len(game.resources) // 2
             if cond1 or cond2:
@@ -420,87 +467,83 @@ class MyStrategy:
                     dist, attack_target, move_target = Calc.find_closest(cur_pos, game.enemy_buildings, game.map_size**2)
             if move_target is not None:
                 move_action = MoveAction(move_target, True, True)
-                attack_action = AttackAction(attack_target, AutoAttack(20, []))
+                attack_action = AttackAction(attack_target, AutoAttack(30, []))
             entity_actions[battle_ship.id] = EntityAction(move_action, None, attack_action, None)
 
         for turret in game.my_turrets:
             attack_action = AttackAction(None, AutoAttack(5, []))
             entity_actions[turret.id] = EntityAction(None, None, attack_action, None)
 
-    def command_build_prod(self, game, damap, entity_actions, mbarracks_to_repair, rbarracks_to_repair):
-        if (rbarracks_to_repair is not None) or (len(game.my_builder_units) > 20 and len(game.my_ranged_bases) < 1 and game.my_resource_count > 440):
-            builder = game.my_builder_units.pop(0)
-            move_spot = None
-            move_action = None
-            build_action = None
-            repair_action = None
-            if rbarracks_to_repair is not None:
-                builder2 = game.my_builder_units.pop(0)
-                repair_action = RepairAction(rbarracks_to_repair.id)
-                move_spot = damap.find_move_spot(builder.position, rbarracks_to_repair.position, 5)
-                move_spot2 = damap.find_move_spot(builder2.position, rbarracks_to_repair.position, 5)
-                if move_spot is not None:
-                    move_action = MoveAction(move_spot, True, False)
-                if move_spot2 is not None:
-                    move_action2 = MoveAction(move_spot2, True, False)
-                entity_actions[builder.id] = EntityAction(move_action, None, None, repair_action)
-                entity_actions[builder2.id] = EntityAction(move_action2, None, None, repair_action)
-            else:
-                rbarracks_spot = damap.find_building_spot(6, builder.position)
-                if rbarracks_spot is not None:
-                    build_action = BuildAction(EntityType.RANGED_BASE, rbarracks_spot)
-                    move_spot = damap.find_move_spot(builder.position, rbarracks_spot, 5)
-                    if move_spot is not None:
-                        move_action = MoveAction(move_spot, True, False)
-                    entity_actions[builder.id] = EntityAction(move_action, build_action, None, None)
-
-        elif (mbarracks_to_repair is not None) or (len(game.my_builder_units) > 20 and len(game.my_melee_bases) < 1 and game.my_resource_count > 440):
-            builder = game.my_builder_units.pop(0)
-            move_spot = None
-            move_action = None
-            build_action = None
-            repair_action = None
-            if mbarracks_to_repair is not None:
-                builder2 = game.my_builder_units.pop(0)
-                repair_action = RepairAction(mbarracks_to_repair.id)
-                move_spot = damap.find_move_spot(builder.position, mbarracks_to_repair.position, 5)
-                move_spot2 = damap.find_move_spot(builder2.position, mbarracks_to_repair.position, 5)
-                if move_spot is not None:
-                    move_action = MoveAction(move_spot, True, False)
-                if move_spot2 is not None:
-                    move_action2 = MoveAction(move_spot2, True, False)
-                entity_actions[builder.id] = EntityAction(move_action, None, None, repair_action)
-                entity_actions[builder2.id] = EntityAction(move_action2, None, None, repair_action)
-            else:
-                mbarracks_spot = damap.find_building_spot(6, builder.position)
-                if mbarracks_spot is not None:
-                    build_action = BuildAction(EntityType.MELEE_BASE, mbarracks_spot)
-                    move_spot = damap.find_move_spot(builder.position, mbarracks_spot, 5)
-                    if move_spot is not None:
-                        move_action = MoveAction(move_spot, True, False)
-                    entity_actions[builder.id] = EntityAction(move_action, build_action, None, None)
-
-    def command_build_houses(self, game, damap, entity_actions):
+    def command_build_prod(self, game, damap, entity_actions):
         # repair
-        for house_to_repair in self.houses_in_progress:
-            for task in self.buider_tasks:
-                if house_to_repair not in {self.buider_tasks[0][2], self.buider_tasks[1][2]}:
+        for prod_to_repair in self.prod_in_progress:
+            for task in self.prod_buider_tasks:
+                if prod_to_repair not in {self.prod_buider_tasks[0][2], self.prod_buider_tasks[1][2]}:
                     if task[1] is not None:
-                        if (task[1].position.x == house_to_repair.position.x) and (task[1].position.y == house_to_repair.position.y):
+                        if (task[1].position.x == prod_to_repair.position.x) and (task[1].position.y == prod_to_repair.position.y):
                             task[1] = None
                     if task[1] is None and task[2] is None:
                         move_action = None
                         build_action = None
-                        repair_action = RepairAction(house_to_repair.id)
-                        task[2] = house_to_repair
-                        move_spot = damap.find_move_spot(task[0].position, house_to_repair.position, 3)
+                        repair_action = RepairAction(prod_to_repair.id)
+                        task[2] = prod_to_repair
+                        move_spot = damap.find_move_spot(task[0].position, prod_to_repair.position, 5)
                         if move_spot is not None:
                             move_action = MoveAction(move_spot, True, False)
                         entity_action = EntityAction(move_action, None, None, repair_action)
                         entity_actions[task[0].id] = entity_action
+
+        # build
+        if self.need_prod:
+            prod_type = None
+            if len(game.my_ranged_bases < 1):
+                prod_type = EntityType.RANGED_BASE
+            elif len(game.my_melee_bases < 1):
+                prod_type = EntityType.MELEE_BASE
+            for task in self.prod_buider_tasks[:1]:
+                if task[1] is None and task[2] is None:
+                    move_spot = None
+                    move_action = None
+                    build_action = None
+                    repair_action = None
+                    prod_spot = damap.find_building_spot(5, task[0].position)
+                    if prod_spot is not None:
+                        build_action = BuildAction(prod_type, prod_spot)
+                        move_spot = damap.find_move_spot(task[0].position, prod_spot, 5)
+                        if move_spot is not None:
+                            move_action = MoveAction(move_spot, True, False)
+                        task[1] = build_action
+                        entity_action = EntityAction(move_action, build_action, None, None)
+                        entity_actions[task[0].id] = entity_action
+
+    def command_build_houses(self, game, damap, entity_actions):
+        # repair
+        for house_to_repair in self.houses_in_progress:
+            for num, task in enumerate(self.house_buider_tasks):
+                if task[1] is not None and task[2] is None:
+                    if (task[1].position.x == house_to_repair.position.x) and (task[1].position.y == house_to_repair.position.y):
+                        task[1] = None
+                if task[1] is None and task[2] is None and self.need_houses:
+                    if num == 0 and self.house_buider_tasks[1][2] is not None:
+                        if self.house_buider_tasks[1][2].id == house_to_repair.id:
+                            continue
+                    elif num == 1 and self.house_buider_tasks[0][2] is not None:
+                        if self.house_buider_tasks[0][2].id == house_to_repair.id:
+                            continue
+                if task[1] is None and task[2] is None:
+                    move_action = None
+                    build_action = None
+                    repair_action = RepairAction(house_to_repair.id)
+                    task[2] = house_to_repair
+                    move_spot = damap.find_move_spot(task[0].position, house_to_repair.position, 3)
+                    if move_spot is not None:
+                        move_action = MoveAction(move_spot, True, False)
+                    entity_action = EntityAction(move_action, None, None, repair_action)
+                    entity_actions[task[0].id] = entity_action
+
         # build
         if self.need_houses:
-            for task in self.buider_tasks[:2]:
+            for task in self.house_buider_tasks[:2]:
                 if task[1] is None and task[2] is None:
                     move_spot = None
                     move_action = None
@@ -528,14 +571,15 @@ class MyStrategy:
             entity_actions[builder.id] = EntityAction(move_action, None, attack_action, None)
 
     def get_action(self, player_view, debug_interface):
+
         entity_actions = {}
         game = Game(player_view.map_size, player_view.my_id, player_view.players)
         damap = Map(game.parse_entities(player_view.entities))
 
         try:
-            mbarracks_to_repair, rbarracks_to_repair = self.precalc(game, damap)
+            self.precalc(game, damap)
         except:
-            mbarracks_to_repair, rbarracks_to_repair = 0, 0
+            pass
 
         try:
             self.command_prod(game, entity_actions)
@@ -548,7 +592,7 @@ class MyStrategy:
             pass
 
         try:
-            self.command_build_prod(game, damap, entity_actions, mbarracks_to_repair, rbarracks_to_repair)
+            self.command_build_prod(game, damap, entity_actions)
         except:
             pass
 
