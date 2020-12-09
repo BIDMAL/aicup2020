@@ -321,7 +321,7 @@ class MyStrategy:
         self.prod_buider_tasks = [[None, None, None], [None, None, None], [None, None, None], [None, None, None], [None, None, None]]
         self.miner_tasks = []
 
-    def precalc(self, game, damap):
+    def precalc(self, game, damap, entity_actions):
         self.need_houses = 0
         self.need_prod = 0
         self.can_produce = True
@@ -344,6 +344,7 @@ class MyStrategy:
             if (task[2] is not None) and (task[2].id not in houses_in_progress_ids):
                 task[2] = None
                 task[1] = None
+                entity_actions[task[0].id] = EntityAction(None, None, None, None)
             if task[1] is not None:
                 damap.free_map[task[1].position.x][task[1].position.y]
 
@@ -577,7 +578,7 @@ class MyStrategy:
         damap = Map(game.parse_entities(player_view.entities))
 
         try:
-            self.precalc(game, damap)
+            self.precalc(game, damap, entity_actions)
         except:
             pass
 
