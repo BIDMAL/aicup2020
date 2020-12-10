@@ -13,10 +13,12 @@ class Calc:
 
     @staticmethod
     def distance_sqr(a, b):
+
         return (a.x - b.x) ** 2 + (a.y - b.y) ** 2
 
     @staticmethod
     def sign(a):
+
         result = None
         if a > 0:
             result = 1
@@ -28,6 +30,7 @@ class Calc:
 
     @staticmethod
     def find_closest(cur_pos, targets, max_dist, available=None):
+
         dist = max_dist**2
         closest_target = None
         for target in targets:
@@ -44,6 +47,7 @@ class Calc:
 
     @staticmethod
     def find_closest_pos(cur_pos, targets, max_dist):
+
         dist = max_dist**2
         closest_target = None
         for target in targets:
@@ -57,12 +61,15 @@ class Calc:
 
 
 class Map:
+
     def __init__(self, input):
+
         self.free_map = input[0]
         self.def_point = input[1]
         self.map_size = len(self.free_map)
 
     def find_move_spot(self, unit_pos, target_pos, target_size):
+
         # bottom
         available_spots = []
         if target_pos.y-1 >= 0:
@@ -105,6 +112,7 @@ class Map:
         return target_pos
 
     def find_building_spot(self, size, builder_position, builder_num=1):
+
         start_x = 0
         start_y = 0
         free_map = self.free_map
@@ -162,6 +170,7 @@ class Map:
 
 
 class Game:
+
     def __init__(self, map_size, my_id, players):
 
         self.map_size = map_size
@@ -288,6 +297,7 @@ class Game:
 class MyStrategy:
 
     def __init__(self):
+
         self.times = []
         self.commands_this_turn = []
         self.attack_mode = False
@@ -303,6 +313,7 @@ class MyStrategy:
         self.miner_tasks = []
 
     def precalc(self, game, damap, entity_actions):
+
         self.need_houses = 0
         self.need_prod = 0
         self.can_produce = True
@@ -417,6 +428,7 @@ class MyStrategy:
             self.attack_mode = True
 
     def command_prod(self, game, entity_actions):
+
         # melee bases
         for my_melee_base in game.my_melee_bases:
             build_action = None
@@ -445,6 +457,7 @@ class MyStrategy:
             entity_actions[my_builder_base.id] = EntityAction(None, build_action, None, None)
 
     def command_army(self, game, entity_actions):
+
         for battle_ship in game.my_army:
             cur_pos = battle_ship.position
             move_action = None
@@ -469,6 +482,7 @@ class MyStrategy:
             entity_actions[turret.id] = EntityAction(None, None, attack_action, None)
 
     def command_build_prod(self, game, damap, entity_actions):
+
         # repair
         for prod_to_repair in self.prod_in_progress:
             for task in self.prod_buider_tasks:
@@ -514,6 +528,7 @@ class MyStrategy:
                         self.commands_this_turn.append(entity_action)
 
     def command_build_houses(self, game, damap, entity_actions):
+
         # repair
         for house_to_repair in self.houses_in_progress:
             for num, task in enumerate(self.house_buider_tasks):
@@ -560,6 +575,7 @@ class MyStrategy:
                         self.commands_this_turn.append(entity_action)
 
     def command_miners(self, game, entity_actions):
+
         for builder in game.my_builder_units:
             cur_pos = builder.position
             move_action = None
@@ -571,6 +587,7 @@ class MyStrategy:
             entity_actions[builder.id] = EntityAction(move_action, None, attack_action, None)
 
     def get_action(self, player_view, debug_interface):
+
         self.times = []
         self.commands_this_turn = []
         tstmp = time.time()
@@ -626,6 +643,7 @@ class MyStrategy:
         return Action(entity_actions)
 
     def debug_update(self, player_view, debug_interface):
+
         debug_interface.send(DebugCommand.Clear())
         if len(self.times) > 0:
             debug_interface.send(DebugCommand.Add(DebugData.Log(f'Init     : {self.times[0]*1000:.2f}')))
