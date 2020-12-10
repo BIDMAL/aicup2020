@@ -3,7 +3,6 @@ from model import DebugCommand, DebugData
 from model import EntityType, Vec2Int
 import time
 
-# TODO store move_actions and include each turn in free_spots
 # TODO try sending troops in packs
 # TODO build turrets..
 # TODO store state for miners (same as for building houses)
@@ -172,7 +171,6 @@ class Map:
 
 
 class Game:
-
     def __init__(self, map_size, my_id, players):
 
         self.map_size = map_size
@@ -306,17 +304,25 @@ class MyStrategy:
         self.houses_in_progress = []
         self.dedicated_house_builders = []
         self.can_produce = None
-        self.house_buider_tasks = [[None, None, None], [None, None, None], [None, None, None], [None, None, None]]
+        self.house_buider_tasks = [[None, None, None, None], [None, None, None, None], [None, None, None, None], [None, None, None, None]]
         self.need_prod = 0
         self.prod_in_progress = []
         self.dedicated_prod_builders = []
-        self.prod_buider_tasks = [[None, None, None], [None, None, None], [None, None, None], [None, None, None], [None, None, None]]
+        self.prod_buider_tasks = [[None, None, None, None], [None, None, None, None], [None, None, None, None], [None, None, None, None], [None, None, None, None]]
         self.miner_tasks = []
 
     def precalc(self, game, damap, entity_actions):
         self.need_houses = 0
         self.need_prod = 0
         self.can_produce = True
+
+        # spot move_spots
+        for task in self.house_buider_tasks:
+            if task[3] is not None:
+                damap.free_map[task[3].x][task[3].y] = False
+        for task in self.house_buider_tasks:
+            if task[3] is not None:
+                damap.free_map[task[3].x][task[3].y] = False
 
         # houses
         unrepaired_houses = []
@@ -334,11 +340,12 @@ class MyStrategy:
                 self.houses_in_progress.append(house)
         for task in self.house_buider_tasks:
             if (task[2] is not None) and (task[2].id not in houses_in_progress_ids):
-                task[2] = None
                 task[1] = None
+                task[2] = None
+                task[3] = None
                 entity_actions[task[0].id] = EntityAction(None, None, None, None)
             if task[1] is not None:
-                damap.free_map[task[1].position.x][task[1].position.y]
+                damap.free_map[task[1].position.x][task[1].position.y] = False
 
         if game.my_food_count > 20 and game.my_unit_count < 16:
             self.need_houses = 0
@@ -358,6 +365,7 @@ class MyStrategy:
                 self.house_buider_tasks[i][0] = entity
                 self.house_buider_tasks[i][1] = None
                 self.house_buider_tasks[i][2] = None
+                self.house_buider_tasks[i][3] = None
         else:
             for i in range(need_dedicated_house_builders):
                 game.my_builder_units.pop(0)
@@ -380,10 +388,11 @@ class MyStrategy:
             prods_in_progress_ids.append(prod.id)
         for task in self.prod_buider_tasks:
             if (task[2] is not None) and (task[2].id not in prods_in_progress_ids):
-                task[2] = None
                 task[1] = None
+                task[2] = None
+                task[3] = None
             if task[1] is not None:
-                damap.free_map[task[1].position.x][task[1].position.y]
+                damap.free_map[task[1].position.x][task[1].position.y] = False
 
         if (game.my_resource_count > 400) and (len(game.my_ranged_bases) < 1 or len(game.my_melee_bases) < 1):
             self.need_prod = 1
@@ -399,6 +408,7 @@ class MyStrategy:
                 self.prod_buider_tasks[i][0] = entity
                 self.prod_buider_tasks[i][1] = None
                 self.prod_buider_tasks[i][2] = None
+                self.prod_buider_tasks[i][3] = None
         else:
             for i in range(need_dedicated_prod_builders):
                 game.my_builder_units.pop(0)
@@ -483,6 +493,7 @@ class MyStrategy:
                         move_spot = damap.find_move_spot(task[0].position, prod_to_repair.position, 5)
                         if move_spot is not None:
                             move_action = MoveAction(move_spot, True, False)
+                        task[3] = move_spot
                         entity_action = EntityAction(move_action, None, None, repair_action)
                         entity_actions[task[0].id] = entity_action
                         self.commands_this_turn.append(entity_action)
@@ -506,6 +517,7 @@ class MyStrategy:
                         if move_spot is not None:
                             move_action = MoveAction(move_spot, True, False)
                         task[1] = build_action
+                        task[3] = move_spot
                         entity_action = EntityAction(move_action, build_action, None, None)
                         entity_actions[task[0].id] = entity_action
                         self.commands_this_turn.append(entity_action)
@@ -532,6 +544,7 @@ class MyStrategy:
                     move_spot = damap.find_move_spot(task[0].position, house_to_repair.position, 3)
                     if move_spot is not None:
                         move_action = MoveAction(move_spot, True, False)
+                    task[3] = move_spot
                     entity_action = EntityAction(move_action, None, None, repair_action)
                     entity_actions[task[0].id] = entity_action
                     self.commands_this_turn.append(entity_action)
@@ -550,12 +563,10 @@ class MyStrategy:
                         if move_spot is not None:
                             move_action = MoveAction(move_spot, True, False)
                         task[1] = build_action
+                        task[3] = move_spot
                         entity_action = EntityAction(move_action, build_action, None, None)
                         entity_actions[task[0].id] = entity_action
                         self.commands_this_turn.append(entity_action)
-                    # if build_action is not None:
-                    #     self.house_buider_tasks[-1][1] = build_action
-                    #     entity_actions[self.house_buider_tasks[-1][0].id] = entity_action
 
     def command_miners(self, game, entity_actions):
         for builder in game.my_builder_units:
