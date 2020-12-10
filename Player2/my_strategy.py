@@ -7,10 +7,12 @@ class Calc:
 
     @staticmethod
     def distance_sqr(a, b):
+
         return (a.x - b.x) ** 2 + (a.y - b.y) ** 2
 
     @staticmethod
     def sign(a):
+
         result = None
         if a > 0:
             result = 1
@@ -22,6 +24,7 @@ class Calc:
 
     @staticmethod
     def find_closest(cur_pos, targets, max_dist, available=None):
+
         dist = max_dist**2
         closest_target = None
         for target in targets:
@@ -38,6 +41,7 @@ class Calc:
 
     @staticmethod
     def find_closest_pos(cur_pos, targets, max_dist):
+
         dist = max_dist**2
         closest_target = None
         for target in targets:
@@ -51,12 +55,15 @@ class Calc:
 
 
 class Map:
+
     def __init__(self, input):
+
         self.free_map = input[0]
         self.def_point = input[1]
         self.map_size = len(self.free_map)
 
     def find_move_spot(self, unit_pos, target_pos, target_size):
+
         # bottom
         available_spots = []
         if target_pos.y-1 >= 0:
@@ -99,25 +106,17 @@ class Map:
         return target_pos
 
     def find_building_spot(self, size, builder_position, builder_num=1):
+
         start_x = 0
         start_y = 0
-        increment_x = 1
-        increment_y = 1
         free_map = self.free_map
         free_map[builder_position.x][builder_position.y] = True
         half = self.map_size // 2
-        if self.def_point is not None:
-            if self.def_point[0] > half:
-                start_x = self.map_size - size
-                increment_x = -1
-            if self.def_point[0] > half:
-                start_y = self.map_size - size
-                increment_y = -1
 
         for z in range(0, self.map_size - size, size+2):
             for xy in range(0, z, size+2):
-                x = start_x + increment_x * z
-                y = start_y + increment_y * xy
+                x = start_x + z
+                y = start_y + xy
                 available = True
                 for i in range(size):
                     for j in range(size):
@@ -131,8 +130,8 @@ class Map:
                         for jj in range(y, y+size):
                             self.free_map[ii][jj] = False
                     return Vec2Int(x, y)
-                x = start_x + increment_x * xy
-                y = start_y + increment_y * z
+                x = start_x + xy
+                y = start_y + z
                 available = True
                 for i in range(size):
                     for j in range(size):
@@ -146,8 +145,8 @@ class Map:
                         for jj in range(y, y+size):
                             self.free_map[ii][jj] = False
                     return Vec2Int(x, y)
-            x = start_x + increment_x * z
-            y = start_y + increment_y * z
+            x = start_x + z
+            y = start_y + z
             available = True
             for i in range(size):
                 for j in range(size):
@@ -275,22 +274,6 @@ class Game:
 
         self.orientation = (-1, 0)
         self.def_point = (17, 17)
-        # half = self.map_size // 2
-        # if len(self.my_builder_bases):
-        #     position = self.my_builder_bases[0].position
-        #     if position.x > half:
-        #         if position.y > half:
-        #             self.orientation = (-1, 0)
-        #             self.def_point = (self.map_size-12, self.map_size-12)
-        #         else:
-        #             self.orientation = (-1, 4)
-        #             self.def_point = (self.map_size-12, 12)
-        #     elif position.y > half:
-        #         self.orientation = (5, 0)
-        #         self.def_point = (12, self.map_size-12)
-        #     else:
-        #         self.orientation = (5, 4)
-        #         self.def_point = (12, 12)
 
         try:
             self.obtainable_resources.sort(key=lambda res: (res.position.x-self.def_point[0])**2 + (res.position.y-self.def_point[1])**2)
@@ -314,17 +297,26 @@ class MyStrategy:
         self.houses_in_progress = []
         self.dedicated_house_builders = []
         self.can_produce = None
-        self.house_buider_tasks = [[None, None, None], [None, None, None], [None, None, None], [None, None, None]]
+        self.house_buider_tasks = [[None, None, None, None], [None, None, None, None], [None, None, None, None], [None, None, None, None]]
         self.need_prod = 0
         self.prod_in_progress = []
         self.dedicated_prod_builders = []
-        self.prod_buider_tasks = [[None, None, None], [None, None, None], [None, None, None], [None, None, None], [None, None, None]]
+        self.prod_buider_tasks = [[None, None, None, None], [None, None, None, None], [None, None, None, None], [None, None, None, None], [None, None, None, None]]
         self.miner_tasks = []
 
     def precalc(self, game, damap, entity_actions):
+
         self.need_houses = 0
         self.need_prod = 0
         self.can_produce = True
+
+        # spot move_spots
+        for task in self.house_buider_tasks:
+            if task[3] is not None:
+                damap.free_map[task[3].x][task[3].y] = False
+        for task in self.house_buider_tasks:
+            if task[3] is not None:
+                damap.free_map[task[3].x][task[3].y] = False
 
         # houses
         unrepaired_houses = []
@@ -342,11 +334,12 @@ class MyStrategy:
                 self.houses_in_progress.append(house)
         for task in self.house_buider_tasks:
             if (task[2] is not None) and (task[2].id not in houses_in_progress_ids):
-                task[2] = None
                 task[1] = None
+                task[2] = None
+                task[3] = None
                 entity_actions[task[0].id] = EntityAction(None, None, None, None)
             if task[1] is not None:
-                damap.free_map[task[1].position.x][task[1].position.y]
+                damap.free_map[task[1].position.x][task[1].position.y] = False
 
         if game.my_food_count > 20 and game.my_unit_count < 16:
             self.need_houses = 0
@@ -366,6 +359,7 @@ class MyStrategy:
                 self.house_buider_tasks[i][0] = entity
                 self.house_buider_tasks[i][1] = None
                 self.house_buider_tasks[i][2] = None
+                self.house_buider_tasks[i][3] = None
         else:
             for i in range(need_dedicated_house_builders):
                 game.my_builder_units.pop(0)
@@ -388,10 +382,11 @@ class MyStrategy:
             prods_in_progress_ids.append(prod.id)
         for task in self.prod_buider_tasks:
             if (task[2] is not None) and (task[2].id not in prods_in_progress_ids):
-                task[2] = None
                 task[1] = None
+                task[2] = None
+                task[3] = None
             if task[1] is not None:
-                damap.free_map[task[1].position.x][task[1].position.y]
+                damap.free_map[task[1].position.x][task[1].position.y] = False
 
         if (game.my_resource_count > 400) and (len(game.my_ranged_bases) < 1 or len(game.my_melee_bases) < 1):
             self.need_prod = 1
@@ -407,6 +402,7 @@ class MyStrategy:
                 self.prod_buider_tasks[i][0] = entity
                 self.prod_buider_tasks[i][1] = None
                 self.prod_buider_tasks[i][2] = None
+                self.prod_buider_tasks[i][3] = None
         else:
             for i in range(need_dedicated_prod_builders):
                 game.my_builder_units.pop(0)
@@ -424,6 +420,7 @@ class MyStrategy:
             self.attack_mode = True
 
     def command_prod(self, game, entity_actions):
+
         # melee bases
         for my_melee_base in game.my_melee_bases:
             build_action = None
@@ -452,6 +449,7 @@ class MyStrategy:
             entity_actions[my_builder_base.id] = EntityAction(None, build_action, None, None)
 
     def command_army(self, game, entity_actions):
+
         for battle_ship in game.my_army:
             cur_pos = battle_ship.position
             move_action = None
@@ -476,6 +474,7 @@ class MyStrategy:
             entity_actions[turret.id] = EntityAction(None, None, attack_action, None)
 
     def command_build_prod(self, game, damap, entity_actions):
+
         # repair
         for prod_to_repair in self.prod_in_progress:
             for task in self.prod_buider_tasks:
@@ -491,13 +490,13 @@ class MyStrategy:
                         move_spot = damap.find_move_spot(task[0].position, prod_to_repair.position, 5)
                         if move_spot is not None:
                             move_action = MoveAction(move_spot, True, False)
+                        task[3] = move_spot
                         entity_action = EntityAction(move_action, None, None, repair_action)
                         entity_actions[task[0].id] = entity_action
-
         # build
         if self.need_prod:
             prod_type = None
-            if len(game.my_ranged_bases < 1):
+            if len(game.my_ranged_bases) < 1:
                 prod_type = EntityType.RANGED_BASE
             elif len(game.my_melee_bases < 1):
                 prod_type = EntityType.MELEE_BASE
@@ -514,10 +513,12 @@ class MyStrategy:
                         if move_spot is not None:
                             move_action = MoveAction(move_spot, True, False)
                         task[1] = build_action
+                        task[3] = move_spot
                         entity_action = EntityAction(move_action, build_action, None, None)
                         entity_actions[task[0].id] = entity_action
 
     def command_build_houses(self, game, damap, entity_actions):
+
         # repair
         for house_to_repair in self.houses_in_progress:
             for num, task in enumerate(self.house_buider_tasks):
@@ -539,9 +540,9 @@ class MyStrategy:
                     move_spot = damap.find_move_spot(task[0].position, house_to_repair.position, 3)
                     if move_spot is not None:
                         move_action = MoveAction(move_spot, True, False)
+                    task[3] = move_spot
                     entity_action = EntityAction(move_action, None, None, repair_action)
                     entity_actions[task[0].id] = entity_action
-
         # build
         if self.need_houses:
             for task in self.house_buider_tasks[:2]:
@@ -557,10 +558,12 @@ class MyStrategy:
                         if move_spot is not None:
                             move_action = MoveAction(move_spot, True, False)
                         task[1] = build_action
+                        task[3] = move_spot
                         entity_action = EntityAction(move_action, build_action, None, None)
                         entity_actions[task[0].id] = entity_action
 
     def command_miners(self, game, entity_actions):
+
         for builder in game.my_builder_units:
             cur_pos = builder.position
             move_action = None
@@ -610,5 +613,6 @@ class MyStrategy:
         return Action(entity_actions)
 
     def debug_update(self, player_view, debug_interface):
+
         debug_interface.send(DebugCommand.Clear())
         debug_interface.get_state()
