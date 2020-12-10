@@ -107,23 +107,14 @@ class Map:
     def find_building_spot(self, size, builder_position, builder_num=1):
         start_x = 0
         start_y = 0
-        increment_x = 1
-        increment_y = 1
         free_map = self.free_map
         free_map[builder_position.x][builder_position.y] = True
         half = self.map_size // 2
-        if self.def_point is not None:
-            if self.def_point[0] > half:
-                start_x = self.map_size - size
-                increment_x = -1
-            if self.def_point[0] > half:
-                start_y = self.map_size - size
-                increment_y = -1
 
         for z in range(0, self.map_size - size, size+2):
             for xy in range(0, z, size+2):
-                x = start_x + increment_x * z
-                y = start_y + increment_y * xy
+                x = start_x + z
+                y = start_y + xy
                 available = True
                 for i in range(size):
                     for j in range(size):
@@ -137,8 +128,8 @@ class Map:
                         for jj in range(y, y+size):
                             self.free_map[ii][jj] = False
                     return Vec2Int(x, y)
-                x = start_x + increment_x * xy
-                y = start_y + increment_y * z
+                x = start_x + xy
+                y = start_y + z
                 available = True
                 for i in range(size):
                     for j in range(size):
@@ -152,8 +143,8 @@ class Map:
                         for jj in range(y, y+size):
                             self.free_map[ii][jj] = False
                     return Vec2Int(x, y)
-            x = start_x + increment_x * z
-            y = start_y + increment_y * z
+            x = start_x + z
+            y = start_y + z
             available = True
             for i in range(size):
                 for j in range(size):
@@ -500,7 +491,7 @@ class MyStrategy:
         # build
         if self.need_prod:
             prod_type = None
-            if len(game.my_ranged_bases < 1):
+            if len(game.my_ranged_bases) < 1:
                 prod_type = EntityType.RANGED_BASE
             elif len(game.my_melee_bases < 1):
                 prod_type = EntityType.MELEE_BASE
