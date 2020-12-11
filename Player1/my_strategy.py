@@ -6,12 +6,11 @@ import time
 # TODO:
 # ranged kite melee, don't build melee
 # army doesn't suicide 1 by 1
-# probers run away from enemy army
+# probes run away from enemy army
 # probes repair turrets when enemy army's nearby
 # try sending troops in packs
 # build turrets..
 # store state for miners (same as for building houses)
-# self.attack_mode rly needed?
 
 
 class Calc:
