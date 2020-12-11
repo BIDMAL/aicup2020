@@ -64,6 +64,17 @@ class Calc:
         return dist, closest_target[0], closest_target[1]
 
 
+class Worker:
+
+    def __init__(self, wid, pos):
+
+        self.id = wid
+        self.pos = pos
+        self.move_pos = None
+        self.atk_res = None
+        self.repair = None
+
+
 class Map:
 
     def __init__(self, input):
@@ -314,7 +325,7 @@ class MyStrategy:
         self.prod_in_progress = []
         self.dedicated_prod_builders = []
         self.prod_buider_tasks = [[None, None, None, None], [None, None, None, None], [None, None, None, None], [None, None, None, None], [None, None, None, None]]
-        self.miner_tasks = []
+        self.my_miners = dict()
 
     def precalc(self, game, damap, entity_actions):
 
@@ -419,8 +430,7 @@ class MyStrategy:
             for i in range(need_dedicated_prod_builders):
                 game.my_builder_units.pop(0)
 
-        # for miner_task in self.miner_tasks:
-        #    if miner_task[0] is not None and miner_task[0] not in self.b
+        for builder in game.my_builder_units:
 
         cond1 = self.need_houses and (game.my_resource_count < self.need_houses*(50 + len(game.my_houses)))
         cond2 = self.need_prod and game.my_resource_count < 500
