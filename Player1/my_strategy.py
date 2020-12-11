@@ -431,7 +431,7 @@ class MyStrategy:
                 game.my_builder_units.pop(0)
 
         for builder in game.my_builder_units:
-
+            pass
         cond1 = self.need_houses and (game.my_resource_count < self.need_houses*(50 + len(game.my_houses)))
         cond2 = self.need_prod and game.my_resource_count < 500
         if cond1 or cond2:
@@ -613,44 +613,44 @@ class MyStrategy:
         self.times.append(time.time()-tstmp)
         tstmp = time.time()
 
-        # try:
+        try:
         self.precalc(game, damap, entity_actions)
-        # except:
-        #    mbarracks_to_repair, rbarracks_to_repair = 0, 0
+        except Exception as e:
+            print(e)
 
-        # try:
+        try:
         self.command_prod(game, entity_actions)
-        # except:
-        #    pass
+        except Exception as e:
+            print(e)
 
         self.times.append(time.time()-tstmp)
         tstmp = time.time()
 
-        # try:
+        try:
         self.command_army(game, entity_actions)
-        # except:
-        #    pass
+        except Exception as e:
+            print(e)
 
         self.times.append(time.time()-tstmp)
         tstmp = time.time()
 
-        # try:
+        try:
         self.command_build_prod(game, damap, entity_actions)
-        # except:
-        #    pass
+        except Exception as e:
+            print(e)
 
-        # try:
+        try:
         self.command_build_houses(game, damap, entity_actions)
-        # except:
-        #    pass
+        except Exception as e:
+            print(e)
 
         self.times.append(time.time()-tstmp)
         tstmp = time.time()
 
-        # try:
+        try:
         self.command_miners(game, entity_actions)
-        # except:
-        #    pass
+        except Exception as e:
+            print(e)
 
         self.times.append(time.time()-tstmp)
 
@@ -659,19 +659,21 @@ class MyStrategy:
     def debug_update(self, player_view, debug_interface):
 
         debug_interface.send(DebugCommand.Clear())
-        if len(self.times) > 0:
-            debug_interface.send(DebugCommand.Add(DebugData.Log(f'Init     : {self.times[0]*1000:.2f}')))
-            debug_interface.send(DebugCommand.Add(DebugData.Log(f'Bases    : {self.times[1]*1000:.2f}')))
-            debug_interface.send(DebugCommand.Add(DebugData.Log(f'Army     : {self.times[2]*1000:.2f}')))
-            debug_interface.send(DebugCommand.Add(DebugData.Log(f'Constract: {self.times[3]*1000:.2f}')))
-            debug_interface.send(DebugCommand.Add(DebugData.Log(f'Resourses: {self.times[4]*1000:.2f}')))
+        # if len(self.times) > 0:
+        #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'Init     : {self.times[0]*1000:.2f}')))
+        #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'Bases    : {self.times[1]*1000:.2f}')))
+        #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'Army     : {self.times[2]*1000:.2f}')))
+        #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'Constract: {self.times[3]*1000:.2f}')))
+        #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'Resourses: {self.times[4]*1000:.2f}')))
         # if len(self.workers) > 0:
         #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'Workers: {self.workers}')))
         # debug_interface.send(DebugCommand.Add(DebugData.Log(f'can_produce: {self.can_produce}')))
         # debug_interface.send(DebugCommand.Add(DebugData.Log(f'need_houses: {self.need_houses}')))
-        debug_interface.send(DebugCommand.Add(DebugData.Log(f'houses_in_progress: {self.houses_in_progress}')))
-        for task in self.house_buider_tasks:
-            debug_interface.send(DebugCommand.Add(DebugData.Log(f'house_buider_tasks: {task}')))
-        for command in self.commands_this_turn:
-            debug_interface.send(DebugCommand.Add(DebugData.Log(f'command: {command}')))
+        # debug_interface.send(DebugCommand.Add(DebugData.Log(f'houses_in_progress: {self.houses_in_progress}')))
+        # for task in self.house_buider_tasks:
+        #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'house_buider_tasks: {task}')))
+        # for command in self.commands_this_turn:
+        #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'command: {command}')))
+
+        #debug_interface.send(DebugCommand.Add(DebugData.Log(f'my_miners: {self.my_miners}')))
         debug_interface.get_state()
