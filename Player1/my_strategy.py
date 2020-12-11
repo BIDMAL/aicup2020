@@ -1,6 +1,7 @@
 from model import Action, EntityAction, BuildAction, MoveAction, AttackAction, RepairAction, AutoAttack
 from model import DebugCommand, DebugData
 from model import EntityType, Vec2Int
+import numpy as np
 import time
 
 # TODO:
@@ -9,11 +10,14 @@ import time
 # probes run away from enemy army
 # probes repair turrets when enemy army's nearby
 # try sending troops in packs
-# build turrets..
-# store state for miners (same as for building houses)
+# build turrets
 
 
 class Calc:
+
+    @staticmethod
+    def heatup_map(position, hmap, size=1):
+        pass
 
     @staticmethod
     def distance_sqr(a, b):
@@ -213,6 +217,8 @@ class Game:
         self.my_turrets = []
         self.enemy_units = []
         self.enemy_buildings = []
+        self.miners_hmap = np.zeros((map_size+10, map_size+10))
+        self.enemies_hmap = np.zeros((map_size+10, map_size+10))
         self.free_spots = [[True for _ in range(self.map_size)] for _ in range(self.map_size)]
 
     def parse_entities(self, entities):
@@ -232,6 +238,7 @@ class Game:
                 elif entity.entity_type == EntityType.BUILDER_UNIT:
                     self.my_builder_units.append(entity)
                     self.my_builder_units_ids.add(entity.id)
+                    Calc.heatup_map(entity.position, self.miners_hmap)
                 elif entity.entity_type == EntityType.MELEE_BASE:
                     self.my_melee_bases.append(entity)
                 elif entity.entity_type == EntityType.MELEE_UNIT:
@@ -245,6 +252,10 @@ class Game:
             else:
                 if entity.entity_type in {EntityType.TURRET, EntityType.BUILDER_UNIT, EntityType.MELEE_UNIT, EntityType.RANGED_UNIT}:
                     self.enemy_units.append(entity)
+                    if entity.entity_type == EntityType.TURRET:
+                        Calc.heatup_map(entity.position, self.enemies_hmap, 2)
+                    else:
+                        Calc.heatup_map(entity.position, self.enemies_hmap)
                 elif entity.entity_type in {EntityType.WALL, EntityType.HOUSE, EntityType.BUILDER_BASE, EntityType.MELEE_BASE, EntityType.RANGED_BASE}:
                     self.enemy_buildings.append(entity)
 
@@ -648,10 +659,10 @@ class MyStrategy:
         self.times.append(time.time()-tstmp)
         tstmp = time.time()
 
-        try:
-            self.command_army(game, entity_actions)
-        except Exception as e:
-            print(f'command_army: {e}')
+        # try:
+        self.command_army(game, entity_actions)
+        # except Exception as e:
+        #    print(f'command_army: {e}')
 
         self.times.append(time.time()-tstmp)
         tstmp = time.time()
@@ -681,12 +692,12 @@ class MyStrategy:
     def debug_update(self, player_view, debug_interface):
 
         debug_interface.send(DebugCommand.Clear())
-        if len(self.times) > 0:
-            debug_interface.send(DebugCommand.Add(DebugData.Log(f'Init     : {self.times[0]*1000:.2f}')))
-            debug_interface.send(DebugCommand.Add(DebugData.Log(f'Bases    : {self.times[1]*1000:.2f}')))
-            debug_interface.send(DebugCommand.Add(DebugData.Log(f'Army     : {self.times[2]*1000:.2f}')))
-            debug_interface.send(DebugCommand.Add(DebugData.Log(f'Constract: {self.times[3]*1000:.2f}')))
-            debug_interface.send(DebugCommand.Add(DebugData.Log(f'Resourses: {self.times[4]*1000:.2f}')))
+        # if len(self.times) > 0:
+        #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'Init     : {self.times[0]*1000:.2f}')))
+        #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'Bases    : {self.times[1]*1000:.2f}')))
+        #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'Army     : {self.times[2]*1000:.2f}')))
+        #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'Constract: {self.times[3]*1000:.2f}')))
+        #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'Resourses: {self.times[4]*1000:.2f}')))
         # if len(self.workers) > 0:
         #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'Workers: {self.workers}')))
         # debug_interface.send(DebugCommand.Add(DebugData.Log(f'can_produce: {self.can_produce}')))
