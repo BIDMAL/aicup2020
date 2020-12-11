@@ -430,8 +430,18 @@ class MyStrategy:
             for i in range(need_dedicated_prod_builders):
                 game.my_builder_units.pop(0)
 
-        for builder in game.my_builder_units:
-            pass
+        # miners
+        alive_miners_ids = set()
+        prev_miners_ids = set(self.my_miners.keys())
+        for miner in game.my_builder_units:
+            alive_miners_ids.add(miner.id)
+            if miner.id not in prev_miners_ids:
+                self.my_miners[miner.id] = Worker(miner.id, miner.position)
+        for prev_miners_id in prev_miners_ids:
+            if prev_miners_id not in alive_miners_ids:
+                del(self.my_miners[prev_miners_id])
+
+        # can_produce, attack_mode
         cond1 = self.need_houses and (game.my_resource_count < self.need_houses*(50 + len(game.my_houses)))
         cond2 = self.need_prod and game.my_resource_count < 500
         if cond1 or cond2:
@@ -614,20 +624,12 @@ class MyStrategy:
         tstmp = time.time()
 
         try:
-        self.precalc(game, damap, entity_actions)
+            self.precalc(game, damap, entity_actions)
         except Exception as e:
             print(e)
 
         try:
-        self.command_prod(game, entity_actions)
-        except Exception as e:
-            print(e)
-
-        self.times.append(time.time()-tstmp)
-        tstmp = time.time()
-
-        try:
-        self.command_army(game, entity_actions)
+            self.command_prod(game, entity_actions)
         except Exception as e:
             print(e)
 
@@ -635,12 +637,7 @@ class MyStrategy:
         tstmp = time.time()
 
         try:
-        self.command_build_prod(game, damap, entity_actions)
-        except Exception as e:
-            print(e)
-
-        try:
-        self.command_build_houses(game, damap, entity_actions)
+            self.command_army(game, entity_actions)
         except Exception as e:
             print(e)
 
@@ -648,7 +645,20 @@ class MyStrategy:
         tstmp = time.time()
 
         try:
-        self.command_miners(game, entity_actions)
+            self.command_build_prod(game, damap, entity_actions)
+        except Exception as e:
+            print(e)
+
+        try:
+            self.command_build_houses(game, damap, entity_actions)
+        except Exception as e:
+            print(e)
+
+        self.times.append(time.time()-tstmp)
+        tstmp = time.time()
+
+        try:
+            self.command_miners(game, entity_actions)
         except Exception as e:
             print(e)
 
