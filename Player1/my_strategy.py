@@ -70,9 +70,9 @@ class Worker:
 
         self.id = wid
         self.pos = pos
-        self.move_pos = None
-        self.atk_res = None
-        self.repair = None
+        self.mov = None
+        self.res = None
+        self.rep = None
 
 
 class Map:
@@ -437,9 +437,17 @@ class MyStrategy:
             alive_miners_ids.add(miner.id)
             if miner.id not in prev_miners_ids:
                 self.my_miners[miner.id] = Worker(miner.id, miner.position)
+            else:
+                self.my_miners[miner.id].pos = miner.position
         for prev_miners_id in prev_miners_ids:
             if prev_miners_id not in alive_miners_ids:
                 del(self.my_miners[prev_miners_id])
+        for key, val in self.my_miners.items():
+            if val.res is not None:
+                if val.res not in game.res_ids:
+                    self.my_miners[key].res = None
+                else:
+                    game.res_avails[val.res] = False
 
         # can_produce, attack_mode
         cond1 = self.need_houses and (game.my_resource_count < self.need_houses*(50 + len(game.my_houses)))
@@ -493,9 +501,9 @@ class MyStrategy:
                 move_target = Vec2Int(game.def_point[0], game.def_point[1])
             else:
                 if len(game.enemy_units) > 0:
-                    dist, attack_target, move_target = Calc.find_closest(cur_pos, game.enemy_units, game.map_size**2)
+                    dist, attack_target, move_target = Calc.find_closest(cur_pos, game.enemy_units, game.map_size)
                 elif len(game.enemy_buildings) > 0:
-                    dist, attack_target, move_target = Calc.find_closest(cur_pos, game.enemy_buildings, game.map_size**2)
+                    dist, attack_target, move_target = Calc.find_closest(cur_pos, game.enemy_buildings, game.map_size)
             if move_target is not None:
                 move_action = MoveAction(move_target, True, True)
                 attack_action = AttackAction(attack_target, AutoAttack(30, []))
@@ -600,15 +608,19 @@ class MyStrategy:
 
     def command_miners(self, game, entity_actions):
 
-        for builder in game.my_builder_units:
-            cur_pos = builder.position
-            move_action = None
-            attack_action = None
-            dist, target_res, target_position = Calc.find_closest(cur_pos, game.obtainable_resources, game.map_size**2, game.res_avails)
-            game.res_avails[target_res] = False
-            move_action = MoveAction(target_position, True, False)
-            attack_action = AttackAction(target_res, None)
-            entity_actions[builder.id] = EntityAction(move_action, None, attack_action, None)
+        for miner in self.my_miners.values():
+            if miner.res is None:
+                cur_pos = miner.pos
+                move_action = None
+                attack_action = None
+                dist, target_res, target_position = Calc.find_closest(cur_pos, game.obtainable_resources, game.map_size, game.res_avails)
+                game.res_avails[target_res] = False
+                miner.res = target_res
+                miner.mov = target_position
+                miner.rep = None
+                move_action = MoveAction(target_position, True, False)
+                attack_action = AttackAction(target_res, None)
+                entity_actions[miner.id] = EntityAction(move_action, None, attack_action, None)
 
     def get_action(self, player_view, debug_interface):
 
@@ -626,12 +638,12 @@ class MyStrategy:
         try:
             self.precalc(game, damap, entity_actions)
         except Exception as e:
-            print(e)
+            print(f'precalc: {e}')
 
         try:
             self.command_prod(game, entity_actions)
         except Exception as e:
-            print(e)
+            print(f'command_prod: {e}')
 
         self.times.append(time.time()-tstmp)
         tstmp = time.time()
@@ -639,7 +651,7 @@ class MyStrategy:
         try:
             self.command_army(game, entity_actions)
         except Exception as e:
-            print(e)
+            print(f'command_army: {e}')
 
         self.times.append(time.time()-tstmp)
         tstmp = time.time()
@@ -647,12 +659,12 @@ class MyStrategy:
         try:
             self.command_build_prod(game, damap, entity_actions)
         except Exception as e:
-            print(e)
+            print(f'command_build_prod: {e}')
 
         try:
             self.command_build_houses(game, damap, entity_actions)
         except Exception as e:
-            print(e)
+            print(f'command_build_houses: {e}')
 
         self.times.append(time.time()-tstmp)
         tstmp = time.time()
@@ -660,7 +672,7 @@ class MyStrategy:
         try:
             self.command_miners(game, entity_actions)
         except Exception as e:
-            print(e)
+            print(f'command_miners: {e}')
 
         self.times.append(time.time()-tstmp)
 
@@ -669,12 +681,12 @@ class MyStrategy:
     def debug_update(self, player_view, debug_interface):
 
         debug_interface.send(DebugCommand.Clear())
-        # if len(self.times) > 0:
-        #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'Init     : {self.times[0]*1000:.2f}')))
-        #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'Bases    : {self.times[1]*1000:.2f}')))
-        #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'Army     : {self.times[2]*1000:.2f}')))
-        #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'Constract: {self.times[3]*1000:.2f}')))
-        #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'Resourses: {self.times[4]*1000:.2f}')))
+        if len(self.times) > 0:
+            debug_interface.send(DebugCommand.Add(DebugData.Log(f'Init     : {self.times[0]*1000:.2f}')))
+            debug_interface.send(DebugCommand.Add(DebugData.Log(f'Bases    : {self.times[1]*1000:.2f}')))
+            debug_interface.send(DebugCommand.Add(DebugData.Log(f'Army     : {self.times[2]*1000:.2f}')))
+            debug_interface.send(DebugCommand.Add(DebugData.Log(f'Constract: {self.times[3]*1000:.2f}')))
+            debug_interface.send(DebugCommand.Add(DebugData.Log(f'Resourses: {self.times[4]*1000:.2f}')))
         # if len(self.workers) > 0:
         #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'Workers: {self.workers}')))
         # debug_interface.send(DebugCommand.Add(DebugData.Log(f'can_produce: {self.can_produce}')))
@@ -684,6 +696,7 @@ class MyStrategy:
         #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'house_buider_tasks: {task}')))
         # for command in self.commands_this_turn:
         #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'command: {command}')))
-
+        # for key, miner in self.my_miners.items():
+        #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'miner {key}: {miner.res, miner.mov}')))
         #debug_interface.send(DebugCommand.Add(DebugData.Log(f'my_miners: {self.my_miners}')))
         debug_interface.get_state()
