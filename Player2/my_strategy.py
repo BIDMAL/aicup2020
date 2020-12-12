@@ -82,16 +82,18 @@ class Map:
         self.free_map = np.array(np.ones((self.map_size, self.map_size)), dtype=bool)
         self.orientation = (-1, 0)
         self.def_point = (17, 17)
-        self.obtainable_resources = params[2]
-
+        self.res_ids = set()
+        self.res_coords = set()
+        self.obtainable_resources = []
+        self.resources = params[2]
         entities = params[3]
-        my_prod = params[4]
-        my_builder_bases = params[5]
 
         for entity in entities:
             if entity.player_id == self.my_id:
                 if entity.entity_type == EntityType.BUILDER_UNIT:
                     Calc.heatup_map(entity.position, self.miners_hmap)
+                elif entity.entity_type in {EntityType.BUILDER_BASE, EntityType.MELEE_BASE, EntityType.RANGED_BASE}:
+                    self.free_map[entity.position.x+5, entity.position.y+4] = False
             else:
                 if entity.entity_type in {EntityType.TURRET, EntityType.BUILDER_UNIT, EntityType.MELEE_UNIT, EntityType.RANGED_UNIT}:
                     if entity.entity_type == EntityType.TURRET:
@@ -99,26 +101,23 @@ class Map:
                     else:
                         Calc.heatup_map(entity.position, self.enemies_hmap)
             if entity.entity_type == EntityType.RESOURCE:
-                self.free_map[entity.position.x][entity.position.y] = False
+                self.res_coords.add((entity.position.x, entity.position.y))
+                self.res_ids.add(entity.id)
+                self.free_map[entity.position.x, entity.position.y] = False
             if entity.entity_type in {EntityType.WALL, EntityType.BUILDER_UNIT, EntityType.MELEE_UNIT, EntityType.RANGED_UNIT}:
-                self.free_map[entity.position.x][entity.position.y] = False
+                self.free_map[entity.position.x, entity.position.y] = False
             elif entity.entity_type == EntityType.TURRET:
                 for i in range(2):
                     for j in range(2):
-                        self.free_map[entity.position.x+i][entity.position.y+j] = False
+                        self.free_map[entity.position.x+i, entity.position.y+j] = False
             elif entity.entity_type == EntityType.HOUSE:
                 for i in range(3):
                     for j in range(3):
-                        self.free_map[entity.position.x+i][entity.position.y+j] = False
+                        self.free_map[entity.position.x+i, entity.position.y+j] = False
             elif entity.entity_type in {EntityType.BUILDER_BASE, EntityType.MELEE_BASE, EntityType.RANGED_BASE}:
                 for i in range(5):
                     for j in range(5):
-                        self.free_map[entity.position.x+i][entity.position.y+j] = False
-
-        for entity in my_prod:
-            self.free_map[entity.position.x+5][entity.position.y+4] = False
-        for entity in my_builder_bases:
-            self.free_map[entity.position.x+5][entity.position.y+4] = False
+                        self.free_map[entity.position.x+i, entity.position.y+j] = False
 
     def find_move_spot(self, unit_pos, target_pos, target_size):
 
@@ -127,7 +126,7 @@ class Map:
         if target_pos.y-1 >= 0:
             try:
                 for x in range(target_pos.x, target_pos.x+target_size):
-                    if self.free_map[x][target_pos.y-1]:
+                    if self.free_map[x, target_pos.y-1]:
                         available_spots.append((x, target_pos.y-1))
             except:
                 pass
@@ -143,7 +142,7 @@ class Map:
         if target_pos.x-1 >= 0:
             try:
                 for y in range(target_pos.y, target_pos.y+target_size):
-                    if self.free_map[target_pos.x-1][y]:
+                    if self.free_map[target_pos.x-1, y]:
                         available_spots.append((target_pos.x-1, y))
             except:
                 pass
@@ -151,7 +150,7 @@ class Map:
         if target_pos.x+target_size < self.map_size:
             try:
                 for y in range(target_pos.y, target_pos.y+target_size):
-                    if self.free_map[target_pos.x+target_size][y]:
+                    if self.free_map[target_pos.x+target_size, y]:
                         available_spots.append((target_pos.x+target_size, y))
             except:
                 pass
@@ -160,7 +159,8 @@ class Map:
         if len(available_spots):
             dist, x, y = Calc.find_closest_pos(unit_pos, available_spots, self.map_size)
             target_pos = Vec2Int(x, y)
-            self.free_map[x][y] = False
+            self.free_map[x, y] = False
+
         return target_pos
 
     def find_building_spot(self, size, builder_position, builder_num=1):
@@ -168,8 +168,7 @@ class Map:
         start_x = 0
         start_y = 0
         free_map = self.free_map
-        free_map[builder_position.x][builder_position.y] = True
-        half = self.map_size // 2
+        free_map[builder_position.x, builder_position.y] = True
 
         for z in range(0, self.map_size - size, size+2):
             for xy in range(0, z, size+2):
@@ -178,7 +177,7 @@ class Map:
                 available = True
                 for i in range(size):
                     for j in range(size):
-                        available = self.free_map[x+i][y+j]
+                        available = self.free_map[x+i, y+j]
                         if not available:
                             break
                     if not available:
@@ -186,14 +185,15 @@ class Map:
                 if available:
                     for ii in range(x, x+size):
                         for jj in range(y, y+size):
-                            self.free_map[ii][jj] = False
+                            self.free_map[ii, jj] = False
+                    free_map[builder_position.x, builder_position.y] = False
                     return Vec2Int(x, y)
                 x = start_x + xy
                 y = start_y + z
                 available = True
                 for i in range(size):
                     for j in range(size):
-                        available = self.free_map[x+i][y+j]
+                        available = self.free_map[x+i, y+j]
                         if not available:
                             break
                     if not available:
@@ -201,14 +201,15 @@ class Map:
                 if available:
                     for ii in range(x, x+size):
                         for jj in range(y, y+size):
-                            self.free_map[ii][jj] = False
+                            self.free_map[ii, jj] = False
+                    free_map[builder_position.x, builder_position.y] = False
                     return Vec2Int(x, y)
             x = start_x + z
             y = start_y + z
             available = True
             for i in range(size):
                 for j in range(size):
-                    available = self.free_map[x+i][y+j]
+                    available = self.free_map[x+i, y+j]
                     if not available:
                         break
                 if not available:
@@ -216,14 +217,38 @@ class Map:
             if available:
                 for ii in range(x, x+size):
                     for jj in range(y, y+size):
-                        self.free_map[ii][jj] = False
+                        self.free_map[ii, jj] = False
+                free_map[builder_position.x, builder_position.y] = False
                 return Vec2Int(x, y)
+
         return None
+
+    def calc_obtainable_resources(self):
+
+        self.obtainable_resources = []
+        for res in self.resources:
+            coord = (res.position.x, res.position.y)
+            addable = False
+            if (coord[0]-1 >= 0) and ((coord[0]-1, coord[1]) not in self.res_coords) and self.free_map[coord[0]-1, coord[1]]:
+                addable = True
+            elif (coord[0]+1 < self.map_size) and (coord[0]+1, coord[1]) not in self.res_coords and self.free_map[coord[0]+1, coord[1]]:
+                addable = True
+            elif (coord[1]-1 >= 0) and (coord[0], coord[1]-1) not in self.res_coords and self.free_map[coord[0], coord[1]-1]:
+                addable = True
+            elif (coord[1]+1 < self.map_size) and (coord[0], coord[1]+1) not in self.res_coords and self.free_map[coord[0], coord[1]+1]:
+                addable = True
+            if addable:
+                self.obtainable_resources.append(res)
+
+        try:
+            self.obtainable_resources.sort(key=lambda res: (res.position.x)**2 + (res.position.y)**2)
+        except:
+            pass
 
 
 class Game:
 
-    def __init__(self, my_id, players):
+    def __init__(self, my_id, players, tick):
 
         self.my_id = my_id
         self.enemy_ids = []
@@ -233,6 +258,7 @@ class Game:
                 self.my_resource_count = player.resource
             else:
                 self.enemy_ids.append(player.id)
+        self.tick = tick
         self.my_walls = []
         self.my_houses = []
         self.my_builder_bases = []
@@ -244,7 +270,6 @@ class Game:
         self.my_ranged_units = []
         self.resources = []
         self.res_avails = {}
-        self.res_ids = []
         self.my_turrets = []
         self.enemy_units = []
         self.enemy_buildings = []
@@ -284,40 +309,15 @@ class Game:
         self.my_builder_units.sort(key=lambda entity: entity.id)
         self.my_houses.sort(key=lambda entity: entity.id)
 
-        res_coords = set()
-        obtainable_resources = []
-        for res in self.resources:
-            res_coords.add((res.position.x, res.position.y))
-            self.res_ids.append(res.id)
-        for res in self.resources:
-            coord = (res.position.x, res.position.y)
-            addable = False
-            if (coord[0]-1 >= 0) and (coord[0]-1, coord[1]) not in res_coords:
-                addable = True
-            elif (coord[0]+1 < map_size) and (coord[0]+1, coord[1]) not in res_coords:
-                addable = True
-            elif (coord[1]-1 >= 0) and (coord[0], coord[1]-1) not in res_coords:
-                addable = True
-            elif (coord[1]+1 < map_size) and (coord[0], coord[1]+1) not in res_coords:
-                addable = True
-            if addable:
-                obtainable_resources.append(res)
-
         self.my_unit_count = len(self.my_builder_units) + len(self.my_melee_units) + len(self.my_ranged_units)
         self.my_food_prod = self.my_builder_bases + self.my_melee_bases + self.my_ranged_bases + self.my_houses
         self.my_food_prod = [entity for entity in self.my_food_prod if entity.active]
         self.my_food_count = 5*len(self.my_food_prod)
         self.free_unit_slots = self.my_food_count - self.my_unit_count
         self.my_army = self.my_melee_units + self.my_ranged_units
-
         self.my_prod = self.my_melee_bases + self.my_ranged_bases
 
-        try:
-            obtainable_resources.sort(key=lambda res: (res.position.x-17)**2 + (res.position.y-17)**2)
-        except:
-            pass
-
-        return map_size, self.my_id, obtainable_resources, entities, self.my_prod, self.my_builder_bases
+        return map_size, self.my_id, self.resources, entities
 
 
 class MyStrategy:
@@ -345,10 +345,10 @@ class MyStrategy:
         # spot move_spots
         for task in self.house_buider_tasks:
             if task[3] is not None:
-                damap.free_map[task[3].x][task[3].y] = False
+                damap.free_map[task[3].x, task[3].y] = False
         for task in self.house_buider_tasks:
             if task[3] is not None:
-                damap.free_map[task[3].x][task[3].y] = False
+                damap.free_map[task[3].x, task[3].y] = False
 
         # houses
         unrepaired_houses = []
@@ -371,7 +371,7 @@ class MyStrategy:
                 task[3] = None
                 entity_actions[task[0].id] = EntityAction(None, None, None, None)
             if task[1] is not None:
-                damap.free_map[task[1].position.x][task[1].position.y] = False
+                damap.free_map[task[1].position.x, task[1].position.y] = False
 
         if game.my_food_count > 20 and game.my_unit_count < 16:
             self.need_houses = 0
@@ -392,6 +392,7 @@ class MyStrategy:
                 self.house_buider_tasks[i][1] = None
                 self.house_buider_tasks[i][2] = None
                 self.house_buider_tasks[i][3] = None
+                entity_actions[entity.id] = EntityAction(MoveAction(Vec2Int(5, 5), True, False), None, None, None)
         else:
             for i in range(need_dedicated_house_builders):
                 game.my_builder_units.pop(0)
@@ -418,7 +419,7 @@ class MyStrategy:
                 task[2] = None
                 task[3] = None
             if task[1] is not None:
-                damap.free_map[task[1].position.x][task[1].position.y] = False
+                damap.free_map[task[1].position.x, task[1].position.y] = False
 
         if (game.my_resource_count > 400) and (len(game.my_ranged_bases) < 1 or len(game.my_melee_bases) < 1):
             self.need_prod = 1
@@ -453,7 +454,7 @@ class MyStrategy:
                 del(self.my_miners[prev_miners_id])
         for key, val in self.my_miners.items():
             if val.res is not None:
-                if val.res not in game.res_ids:
+                if val.res not in damap.res_ids:
                     self.my_miners[key].res = None
                 else:
                     game.res_avails[val.res] = False
@@ -535,10 +536,13 @@ class MyStrategy:
                         move_action = None
                         build_action = None
                         repair_action = RepairAction(prod_to_repair.id)
-                        task[2] = prod_to_repair
                         move_spot = damap.find_move_spot(task[0].position, prod_to_repair.position, 5)
                         if move_spot is not None:
                             move_action = MoveAction(move_spot, True, False)
+                        else:
+                            print(f'command_build_prod repair: no move_spot')
+                            continue
+                        task[2] = prod_to_repair
                         task[3] = move_spot
                         entity_action = EntityAction(move_action, None, None, repair_action)
                         entity_actions[task[0].id] = entity_action
@@ -562,6 +566,9 @@ class MyStrategy:
                         move_spot = damap.find_move_spot(task[0].position, prod_spot, 5)
                         if move_spot is not None:
                             move_action = MoveAction(move_spot, True, False)
+                        else:
+                            print(f'command_build_prod build: no move_spot')
+                            continue
                         task[1] = build_action
                         task[3] = move_spot
                         entity_action = EntityAction(move_action, build_action, None, None)
@@ -590,6 +597,9 @@ class MyStrategy:
                     move_spot = damap.find_move_spot(task[0].position, house_to_repair.position, 3)
                     if move_spot is not None:
                         move_action = MoveAction(move_spot, True, False)
+                    else:
+                        print(f'command_build_houses repair: no move_spot')
+                        continue
                     task[3] = move_spot
                     entity_action = EntityAction(move_action, None, None, repair_action)
                     entity_actions[task[0].id] = entity_action
@@ -608,6 +618,9 @@ class MyStrategy:
                         move_spot = damap.find_move_spot(task[0].position, house_spot, 3)
                         if move_spot is not None:
                             move_action = MoveAction(move_spot, True, False)
+                        else:
+                            print(f'command_build_houses build: no move_spot')
+                            continue
                         task[1] = build_action
                         task[3] = move_spot
                         entity_action = EntityAction(move_action, build_action, None, None)
@@ -615,15 +628,27 @@ class MyStrategy:
 
     def command_miners(self, game, damap, entity_actions):
 
+        damap.calc_obtainable_resources()
         for miner in self.my_miners.values():
             if miner.res is None:
                 cur_pos = miner.pos
                 move_action = None
                 attack_action = None
                 dist, target_res, target_position = Calc.find_closest(cur_pos, damap.obtainable_resources, damap.map_size, game.res_avails)
+                move_spot = damap.find_move_spot(cur_pos, target_position, 1)
+                if move_spot is not None:
+                    move_action = MoveAction(move_spot, True, False)
+                else:
+                    damap.calc_obtainable_resources()
+                    dist, target_res, target_position = Calc.find_closest(cur_pos, damap.obtainable_resources, damap.map_size, game.res_avails)
+                    move_spot = damap.find_move_spot(cur_pos, target_position, 1)
+                    if move_spot is not None:
+                        move_action = MoveAction(move_spot, True, False)
+                    else:
+                        continue
                 game.res_avails[target_res] = False
                 miner.res = target_res
-                miner.mov = target_position
+                miner.mov = move_spot
                 miner.rep = None
                 move_action = MoveAction(target_position, True, False)
                 attack_action = AttackAction(target_res, None)
@@ -632,7 +657,7 @@ class MyStrategy:
     def get_action(self, player_view, debug_interface):
 
         entity_actions = {}
-        game = Game(player_view.my_id, player_view.players)
+        game = Game(player_view.my_id, player_view.players, player_view.current_tick)
         damap = Map(game.parse_entities(player_view.entities, player_view.map_size))
 
         try:

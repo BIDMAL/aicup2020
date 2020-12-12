@@ -1,9 +1,5 @@
-dd = dict()
-for i in range(10):
-    dd[i] = 10*i
+import numpy as np
 
-for key, val in dd.items():
-    if key == 4:
-        del(dd[key])
-
-print(dd)
+aa = np.eye(5)
+print(aa[2, 2])
+print(aa[2][2])
