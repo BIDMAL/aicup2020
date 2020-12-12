@@ -2,31 +2,14 @@ from model import Action, EntityAction, BuildAction, MoveAction, AttackAction, R
 from model import DebugCommand, DebugData
 from model import EntityType, Vec2Int
 import numpy as np
-import time
-
-# TODO:
-# TIME FAIL
-# build in Round2
-# ranged kite melee, don't build melee
-# army doesn't suicide 1 by 1
-# probes repair turrets when enemy army's nearby
-# try sending troops in packs
-# build turrets
 
 
 class Calc:
 
     @staticmethod
-    def heatup_map(position, hmap, radius, offset=0, size=1):
+    def heatup_map(position, hmap, size=1):
 
-        posx = position.x + offset
-        posy = position.y + offset
-        for i in range(size):
-            for j in range(size):
-                for x in range(0, radius+1):
-                    for y in range(posy+j-radius+x, posy+j+radius-x+1):
-                        hmap[posx+i+x, y] += 1
-                        hmap[posx+i-x, y] += 1
+        pass
 
     @staticmethod
     def distance_sqr(a, b):
@@ -94,8 +77,8 @@ class Map:
 
         self.map_size = params[0]
         self.my_id = params[1]
-        self.hmap_miners = np.array(np.zeros((self.map_size+20, self.map_size+20)), dtype='i4')
-        self.hmap_enemies = np.array(np.zeros((self.map_size+20, self.map_size+20)), dtype='i4')
+        self.miners_hmap = np.zeros((self.map_size+10, self.map_size+10))
+        self.enemies_hmap = np.zeros((self.map_size+10, self.map_size+10))
         self.free_map = np.array(np.ones((self.map_size, self.map_size)), dtype=bool)
         self.orientation = (-1, 0)
         self.def_point = (17, 17)
@@ -108,16 +91,15 @@ class Map:
         for entity in entities:
             if entity.player_id == self.my_id:
                 if entity.entity_type == EntityType.BUILDER_UNIT:
-                    Calc.heatup_map(entity.position, self.hmap_miners, 8, offset=10)
+                    Calc.heatup_map(entity.position, self.miners_hmap)
                 elif entity.entity_type in {EntityType.BUILDER_BASE, EntityType.MELEE_BASE, EntityType.RANGED_BASE}:
                     self.free_map[entity.position.x+5, entity.position.y+4] = False
             else:
-                if entity.entity_type == EntityType.TURRET:
-                    Calc.heatup_map(entity.position, self.hmap_enemies, 8, offset=10, size=2)
-                elif entity.entity_type == EntityType.MELEE_UNIT:
-                    Calc.heatup_map(entity.position, self.hmap_enemies, 4, offset=10)
-                elif entity.entity_type == EntityType.RANGED_UNIT:
-                    Calc.heatup_map(entity.position, self.hmap_enemies, 8, offset=10)
+                if entity.entity_type in {EntityType.TURRET, EntityType.BUILDER_UNIT, EntityType.MELEE_UNIT, EntityType.RANGED_UNIT}:
+                    if entity.entity_type == EntityType.TURRET:
+                        Calc.heatup_map(entity.position, self.enemies_hmap, 2)
+                    else:
+                        Calc.heatup_map(entity.position, self.enemies_hmap)
             if entity.entity_type == EntityType.RESOURCE:
                 self.res_coords.add((entity.position.x, entity.position.y))
                 self.res_ids.add(entity.id)
@@ -136,9 +118,6 @@ class Map:
                 for i in range(5):
                     for j in range(5):
                         self.free_map[entity.position.x+i, entity.position.y+j] = False
-
-        self.hmap_miners = np.array(self.hmap_miners[10:self.map_size+10, 10:self.map_size+10])
-        self.hmap_enemies = np.array(self.hmap_enemies[10:self.map_size+10, 10:self.map_size+10])
 
     def find_move_spot(self, unit_pos, target_pos, target_size):
 
@@ -250,8 +229,6 @@ class Map:
         for res in self.resources:
             coord = (res.position.x, res.position.y)
             addable = False
-            if self.hmap_enemies[coord[0], coord[1]]:
-                continue
             if (coord[0]-1 >= 0) and ((coord[0]-1, coord[1]) not in self.res_coords) and self.free_map[coord[0]-1, coord[1]]:
                 addable = True
             elif (coord[0]+1 < self.map_size) and (coord[0]+1, coord[1]) not in self.res_coords and self.free_map[coord[0]+1, coord[1]]:
@@ -346,7 +323,7 @@ class Game:
 class MyStrategy:
 
     def __init__(self):
-        self.times = 0
+
         self.attack_mode = False
         self.need_houses = 0
         self.houses_in_progress = []
@@ -653,16 +630,10 @@ class MyStrategy:
 
         damap.calc_obtainable_resources()
         for miner in self.my_miners.values():
-            move_action = None
-            attack_action = None
-            cur_pos = miner.pos
-
-            if damap.hmap_enemies[cur_pos.x, cur_pos.y]:
-                miner.res = None
-                miner.rep = None
-                move_action = MoveAction(Vec2Int(5, 5), True, False)
-                entity_actions[miner.id] = EntityAction(move_action, None, attack_action, None)
-            elif miner.res is None:
+            if miner.res is None:
+                cur_pos = miner.pos
+                move_action = None
+                attack_action = None
                 dist, target_res, target_position = Calc.find_closest(cur_pos, damap.obtainable_resources, damap.map_size, game.res_avails)
                 move_spot = damap.find_move_spot(cur_pos, target_position, 1)
                 if move_spot is not None:
@@ -684,8 +655,6 @@ class MyStrategy:
                 entity_actions[miner.id] = EntityAction(move_action, None, attack_action, None)
 
     def get_action(self, player_view, debug_interface):
-        self.times = 0
-        tstmp = time.time()
 
         entity_actions = {}
         game = Game(player_view.my_id, player_view.players, player_view.current_tick)
@@ -721,22 +690,9 @@ class MyStrategy:
         except Exception as e:
             print(f'command_miners: {e}')
 
-        self.times = time.time()-tstmp
-
         return Action(entity_actions)
 
     def debug_update(self, player_view, debug_interface):
 
         debug_interface.send(DebugCommand.Clear())
-        debug_interface.send(DebugCommand.Add(DebugData.Log(f'Time: {self.times*1000:.2f}')))
-        # if len(self.workers) > 0:
-        #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'Workers: {self.workers}')))
-        # debug_interface.send(DebugCommand.Add(DebugData.Log(f'can_produce: {self.can_produce}')))
-        # debug_interface.send(DebugCommand.Add(DebugData.Log(f'need_houses: {self.need_houses}')))
-        # debug_interface.send(DebugCommand.Add(DebugData.Log(f'houses_in_progress: {self.houses_in_progress}')))
-        # for task in self.house_buider_tasks:
-        #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'house_buider_tasks: {task}')))
-        # for key, miner in self.my_miners.items():
-        #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'miner {key}: {miner.res, miner.mov}')))
-        # debug_interface.send(DebugCommand.Add(DebugData.Log(f'my_miners: {self.my_miners}')))
         debug_interface.get_state()
