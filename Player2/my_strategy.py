@@ -73,11 +73,52 @@ class Worker:
 
 class Map:
 
-    def __init__(self, input):
+    def __init__(self, params):
 
-        self.free_map = input[0]
-        self.def_point = input[1]
-        self.map_size = len(self.free_map)
+        self.map_size = params[0]
+        self.my_id = params[1]
+        self.miners_hmap = np.zeros((self.map_size+10, self.map_size+10))
+        self.enemies_hmap = np.zeros((self.map_size+10, self.map_size+10))
+        self.free_map = np.array(np.ones((self.map_size, self.map_size)), dtype=bool)
+        self.orientation = (-1, 0)
+        self.def_point = (17, 17)
+        self.obtainable_resources = params[2]
+
+        entities = params[3]
+        my_prod = params[4]
+        my_builder_bases = params[5]
+
+        for entity in entities:
+            if entity.player_id == self.my_id:
+                if entity.entity_type == EntityType.BUILDER_UNIT:
+                    Calc.heatup_map(entity.position, self.miners_hmap)
+            else:
+                if entity.entity_type in {EntityType.TURRET, EntityType.BUILDER_UNIT, EntityType.MELEE_UNIT, EntityType.RANGED_UNIT}:
+                    if entity.entity_type == EntityType.TURRET:
+                        Calc.heatup_map(entity.position, self.enemies_hmap, 2)
+                    else:
+                        Calc.heatup_map(entity.position, self.enemies_hmap)
+            if entity.entity_type == EntityType.RESOURCE:
+                self.free_map[entity.position.x][entity.position.y] = False
+            if entity.entity_type in {EntityType.WALL, EntityType.BUILDER_UNIT, EntityType.MELEE_UNIT, EntityType.RANGED_UNIT}:
+                self.free_map[entity.position.x][entity.position.y] = False
+            elif entity.entity_type == EntityType.TURRET:
+                for i in range(2):
+                    for j in range(2):
+                        self.free_map[entity.position.x+i][entity.position.y+j] = False
+            elif entity.entity_type == EntityType.HOUSE:
+                for i in range(3):
+                    for j in range(3):
+                        self.free_map[entity.position.x+i][entity.position.y+j] = False
+            elif entity.entity_type in {EntityType.BUILDER_BASE, EntityType.MELEE_BASE, EntityType.RANGED_BASE}:
+                for i in range(5):
+                    for j in range(5):
+                        self.free_map[entity.position.x+i][entity.position.y+j] = False
+
+        for entity in my_prod:
+            self.free_map[entity.position.x+5][entity.position.y+4] = False
+        for entity in my_builder_bases:
+            self.free_map[entity.position.x+5][entity.position.y+4] = False
 
     def find_move_spot(self, unit_pos, target_pos, target_size):
 
@@ -182,9 +223,8 @@ class Map:
 
 class Game:
 
-    def __init__(self, map_size, my_id, players):
+    def __init__(self, my_id, players):
 
-        self.map_size = map_size
         self.my_id = my_id
         self.enemy_ids = []
         self.my_resource_count = None
@@ -204,22 +244,17 @@ class Game:
         self.my_ranged_units = []
         self.resources = []
         self.res_avails = {}
-        self.obtainable_resources = []
         self.res_ids = []
         self.my_turrets = []
         self.enemy_units = []
         self.enemy_buildings = []
-        self.miners_hmap = np.zeros((map_size+10, map_size+10))
-        self.enemies_hmap = np.zeros((map_size+10, map_size+10))
-        self.free_spots = [[True for _ in range(self.map_size)] for _ in range(self.map_size)]
 
-    def parse_entities(self, entities):
+    def parse_entities(self, entities, map_size):
 
         for entity in entities:
             if entity.entity_type == EntityType.RESOURCE:
                 self.resources.append(entity)
                 self.res_avails[entity.id] = True
-                self.free_spots[entity.position.x][entity.position.y] = False
             if entity.player_id == self.my_id:
                 if entity.entity_type == EntityType.WALL:
                     self.my_walls.append(entity)
@@ -230,7 +265,6 @@ class Game:
                 elif entity.entity_type == EntityType.BUILDER_UNIT:
                     self.my_builder_units.append(entity)
                     self.my_builder_units_ids.add(entity.id)
-                    Calc.heatup_map(entity.position, self.miners_hmap)
                 elif entity.entity_type == EntityType.MELEE_BASE:
                     self.my_melee_bases.append(entity)
                 elif entity.entity_type == EntityType.MELEE_UNIT:
@@ -244,32 +278,14 @@ class Game:
             else:
                 if entity.entity_type in {EntityType.TURRET, EntityType.BUILDER_UNIT, EntityType.MELEE_UNIT, EntityType.RANGED_UNIT}:
                     self.enemy_units.append(entity)
-                    if entity.entity_type == EntityType.TURRET:
-                        Calc.heatup_map(entity.position, self.enemies_hmap, 2)
-                    else:
-                        Calc.heatup_map(entity.position, self.enemies_hmap)
                 elif entity.entity_type in {EntityType.WALL, EntityType.HOUSE, EntityType.BUILDER_BASE, EntityType.MELEE_BASE, EntityType.RANGED_BASE}:
                     self.enemy_buildings.append(entity)
-
-            if entity.entity_type in {EntityType.WALL, EntityType.BUILDER_UNIT, EntityType.MELEE_UNIT, EntityType.RANGED_UNIT}:
-                self.free_spots[entity.position.x][entity.position.y] = False
-            elif entity.entity_type == EntityType.TURRET:
-                for i in range(2):
-                    for j in range(2):
-                        self.free_spots[entity.position.x+i][entity.position.y+j] = False
-            elif entity.entity_type == EntityType.HOUSE:
-                for i in range(3):
-                    for j in range(3):
-                        self.free_spots[entity.position.x+i][entity.position.y+j] = False
-            elif entity.entity_type in {EntityType.BUILDER_BASE, EntityType.MELEE_BASE, EntityType.RANGED_BASE}:
-                for i in range(5):
-                    for j in range(5):
-                        self.free_spots[entity.position.x+i][entity.position.y+j] = False
 
         self.my_builder_units.sort(key=lambda entity: entity.id)
         self.my_houses.sort(key=lambda entity: entity.id)
 
         res_coords = set()
+        obtainable_resources = []
         for res in self.resources:
             res_coords.add((res.position.x, res.position.y))
             self.res_ids.append(res.id)
@@ -278,14 +294,14 @@ class Game:
             addable = False
             if (coord[0]-1 >= 0) and (coord[0]-1, coord[1]) not in res_coords:
                 addable = True
-            elif (coord[0]+1 < self.map_size) and (coord[0]+1, coord[1]) not in res_coords:
+            elif (coord[0]+1 < map_size) and (coord[0]+1, coord[1]) not in res_coords:
                 addable = True
             elif (coord[1]-1 >= 0) and (coord[0], coord[1]-1) not in res_coords:
                 addable = True
-            elif (coord[1]+1 < self.map_size) and (coord[0], coord[1]+1) not in res_coords:
+            elif (coord[1]+1 < map_size) and (coord[0], coord[1]+1) not in res_coords:
                 addable = True
             if addable:
-                self.obtainable_resources.append(res)
+                obtainable_resources.append(res)
 
         self.my_unit_count = len(self.my_builder_units) + len(self.my_melee_units) + len(self.my_ranged_units)
         self.my_food_prod = self.my_builder_bases + self.my_melee_bases + self.my_ranged_bases + self.my_houses
@@ -296,20 +312,12 @@ class Game:
 
         self.my_prod = self.my_melee_bases + self.my_ranged_bases
 
-        self.orientation = (-1, 0)
-        self.def_point = (17, 17)
-
         try:
-            self.obtainable_resources.sort(key=lambda res: (res.position.x-self.def_point[0])**2 + (res.position.y-self.def_point[1])**2)
+            obtainable_resources.sort(key=lambda res: (res.position.x-17)**2 + (res.position.y-17)**2)
         except:
             pass
 
-        for entity in self.my_prod:
-            self.free_spots[entity.position.x+5][entity.position.y+4] = False
-        for entity in self.my_builder_bases:
-            self.free_spots[entity.position.x+5][entity.position.y+4] = False
-
-        return self.free_spots, self.def_point
+        return map_size, self.my_id, obtainable_resources, entities, self.my_prod, self.my_builder_bases
 
 
 class MyStrategy:
@@ -489,7 +497,7 @@ class MyStrategy:
                 build_action = BuildAction(EntityType.BUILDER_UNIT, position)
             entity_actions[my_builder_base.id] = EntityAction(None, build_action, None, None)
 
-    def command_army(self, game, entity_actions):
+    def command_army(self, game, damap, entity_actions):
 
         for battle_ship in game.my_army:
             cur_pos = battle_ship.position
@@ -499,12 +507,12 @@ class MyStrategy:
             attack_target = None
 
             if not self.attack_mode:
-                move_target = Vec2Int(game.def_point[0], game.def_point[1])
+                move_target = Vec2Int(damap.def_point[0], damap.def_point[1])
             else:
                 if len(game.enemy_units) > 0:
-                    dist, attack_target, move_target = Calc.find_closest(cur_pos, game.enemy_units, game.map_size)
+                    dist, attack_target, move_target = Calc.find_closest(cur_pos, game.enemy_units, damap.map_size)
                 elif len(game.enemy_buildings) > 0:
-                    dist, attack_target, move_target = Calc.find_closest(cur_pos, game.enemy_buildings, game.map_size)
+                    dist, attack_target, move_target = Calc.find_closest(cur_pos, game.enemy_buildings, damap.map_size)
             if move_target is not None:
                 move_action = MoveAction(move_target, True, True)
                 attack_action = AttackAction(attack_target, AutoAttack(30, []))
@@ -534,6 +542,7 @@ class MyStrategy:
                         task[3] = move_spot
                         entity_action = EntityAction(move_action, None, None, repair_action)
                         entity_actions[task[0].id] = entity_action
+
         # build
         if self.need_prod:
             prod_type = None
@@ -584,6 +593,7 @@ class MyStrategy:
                     task[3] = move_spot
                     entity_action = EntityAction(move_action, None, None, repair_action)
                     entity_actions[task[0].id] = entity_action
+
         # build
         if self.need_houses:
             for task in self.house_buider_tasks[:2]:
@@ -603,14 +613,14 @@ class MyStrategy:
                         entity_action = EntityAction(move_action, build_action, None, None)
                         entity_actions[task[0].id] = entity_action
 
-    def command_miners(self, game, entity_actions):
+    def command_miners(self, game, damap, entity_actions):
 
         for miner in self.my_miners.values():
             if miner.res is None:
                 cur_pos = miner.pos
                 move_action = None
                 attack_action = None
-                dist, target_res, target_position = Calc.find_closest(cur_pos, game.obtainable_resources, game.map_size, game.res_avails)
+                dist, target_res, target_position = Calc.find_closest(cur_pos, damap.obtainable_resources, damap.map_size, game.res_avails)
                 game.res_avails[target_res] = False
                 miner.res = target_res
                 miner.mov = target_position
@@ -622,8 +632,8 @@ class MyStrategy:
     def get_action(self, player_view, debug_interface):
 
         entity_actions = {}
-        game = Game(player_view.map_size, player_view.my_id, player_view.players)
-        damap = Map(game.parse_entities(player_view.entities))
+        game = Game(player_view.my_id, player_view.players)
+        damap = Map(game.parse_entities(player_view.entities, player_view.map_size))
 
         try:
             self.precalc(game, damap, entity_actions)
@@ -636,7 +646,7 @@ class MyStrategy:
             print(f'command_prod: {e}')
 
         try:
-            self.command_army(game, entity_actions)
+            self.command_army(game, damap, entity_actions)
         except Exception as e:
             print(f'command_army: {e}')
 
@@ -651,7 +661,7 @@ class MyStrategy:
             print(f'command_build_houses: {e}')
 
         try:
-            self.command_miners(game, entity_actions)
+            self.command_miners(game, damap, entity_actions)
         except Exception as e:
             print(f'command_miners: {e}')
 
