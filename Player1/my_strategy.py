@@ -16,9 +16,16 @@ import numpy as np
 class Calc:
 
     @staticmethod
-    def heatup_map(position, hmap, size=1):
+    def heatup_map(position, hmap, radius, size=1):
 
-        pass
+        posx = position.x
+        posy = position.y
+        for i in range(size):
+            for j in range(size):
+                for x in range(0, radius+1):
+                    for y in range(posy+j-radius+x, posy+j+radius-x+1):
+                        hmap[posx+i+x, y] += 1
+                        hmap[posx+i-x, y] += 1
 
     @staticmethod
     def distance_sqr(a, b):
@@ -86,8 +93,8 @@ class Map:
 
         self.map_size = params[0]
         self.my_id = params[1]
-        self.miners_hmap = np.zeros((self.map_size+10, self.map_size+10))
-        self.enemies_hmap = np.zeros((self.map_size+10, self.map_size+10))
+        self.miners_hmap = np.array(np.zeros((self.map_size+20, self.map_size+20)), dtype='i4')
+        self.enemies_hmap = np.array(np.zeros((self.map_size+20, self.map_size+20)), dtype='i4')
         self.free_map = np.array(np.ones((self.map_size, self.map_size)), dtype=bool)
         self.orientation = (-1, 0)
         self.def_point = (17, 17)
@@ -100,15 +107,16 @@ class Map:
         for entity in entities:
             if entity.player_id == self.my_id:
                 if entity.entity_type == EntityType.BUILDER_UNIT:
-                    Calc.heatup_map(entity.position, self.miners_hmap)
+                    Calc.heatup_map(entity.position, self.miners_hmap, 5)
                 elif entity.entity_type in {EntityType.BUILDER_BASE, EntityType.MELEE_BASE, EntityType.RANGED_BASE}:
                     self.free_map[entity.position.x+5, entity.position.y+4] = False
             else:
-                if entity.entity_type in {EntityType.TURRET, EntityType.BUILDER_UNIT, EntityType.MELEE_UNIT, EntityType.RANGED_UNIT}:
-                    if entity.entity_type == EntityType.TURRET:
-                        Calc.heatup_map(entity.position, self.enemies_hmap, 2)
-                    else:
-                        Calc.heatup_map(entity.position, self.enemies_hmap)
+                if entity.entity_type == EntityType.TURRET:
+                    Calc.heatup_map(entity.position, self.enemies_hmap, 5, 2)
+                elif entity.entity_type == EntityType.MELEE_UNIT:
+                    Calc.heatup_map(entity.position, self.enemies_hmap, 1)
+                elif entity.entity_type == EntityType.RANGED_UNIT:
+                    Calc.heatup_map(entity.position, self.enemies_hmap, 5)
             if entity.entity_type == EntityType.RESOURCE:
                 self.res_coords.add((entity.position.x, entity.position.y))
                 self.res_ids.add(entity.id)
@@ -127,6 +135,9 @@ class Map:
                 for i in range(5):
                     for j in range(5):
                         self.free_map[entity.position.x+i, entity.position.y+j] = False
+
+        self.miners_hmap = np.array(self.miners_hmap[5:self.map_size+10, 10:self.map_size+10])
+        self.enemies_hmap = np.array(self.enemies_hmap[5:self.map_size+10, 10:self.map_size+10])
 
     def find_move_spot(self, unit_pos, target_pos, target_size):
 
@@ -704,6 +715,8 @@ class MyStrategy:
         except Exception as e:
             print(f'command_miners: {e}')
 
+        if game.tick == 200:
+            print(damap.enemies_hmap[0])
         return Action(entity_actions)
 
     def debug_update(self, player_view, debug_interface):
