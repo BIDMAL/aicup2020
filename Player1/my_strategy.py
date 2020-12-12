@@ -5,6 +5,7 @@ import numpy as np
 import time
 
 # TODO:
+# TIME FAIL
 # heatup ignores size
 # build in Round2
 # ranged kite melee, don't build melee
