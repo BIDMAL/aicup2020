@@ -4,6 +4,7 @@ from model import EntityType, Vec2Int
 import numpy as np
 
 # TODO:
+# build in Round2
 # improve mov_to_res, refresh obtainable_resources
 # ranged kite melee, don't build melee
 # army doesn't suicide 1 by 1
@@ -92,15 +93,14 @@ class Map:
         self.orientation = (-1, 0)
         self.def_point = (17, 17)
         self.obtainable_resources = params[2]
-
         entities = params[3]
-        my_prod = params[4]
-        my_builder_bases = params[5]
 
         for entity in entities:
             if entity.player_id == self.my_id:
                 if entity.entity_type == EntityType.BUILDER_UNIT:
                     Calc.heatup_map(entity.position, self.miners_hmap)
+                elif entity.entity_type in {EntityType.BUILDER_BASE, EntityType.MELEE_BASE, EntityType.RANGED_BASE}:
+                    self.free_map[entity.position.x+5][entity.position.y+4] = False
             else:
                 if entity.entity_type in {EntityType.TURRET, EntityType.BUILDER_UNIT, EntityType.MELEE_UNIT, EntityType.RANGED_UNIT}:
                     if entity.entity_type == EntityType.TURRET:
@@ -120,14 +120,10 @@ class Map:
                     for j in range(3):
                         self.free_map[entity.position.x+i][entity.position.y+j] = False
             elif entity.entity_type in {EntityType.BUILDER_BASE, EntityType.MELEE_BASE, EntityType.RANGED_BASE}:
+
                 for i in range(5):
                     for j in range(5):
                         self.free_map[entity.position.x+i][entity.position.y+j] = False
-
-        for entity in my_prod:
-            self.free_map[entity.position.x+5][entity.position.y+4] = False
-        for entity in my_builder_bases:
-            self.free_map[entity.position.x+5][entity.position.y+4] = False
 
     def find_move_spot(self, unit_pos, target_pos, target_size):
 
@@ -322,11 +318,11 @@ class Game:
         self.my_prod = self.my_melee_bases + self.my_ranged_bases
 
         try:
-            obtainable_resources.sort(key=lambda res: (res.position.x-17)**2 + (res.position.y-17)**2)
+            obtainable_resources.sort(key=lambda res: (res.position.x)**2 + (res.position.y)**2)
         except:
             pass
 
-        return map_size, self.my_id, obtainable_resources, entities, self.my_prod, self.my_builder_bases
+        return map_size, self.my_id, obtainable_resources, entities
 
 
 class MyStrategy:
