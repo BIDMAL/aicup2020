@@ -106,12 +106,14 @@ class Map:
         for entity in entities:
             if entity.player_id == self.my_id:
                 if entity.entity_type == EntityType.BUILDER_UNIT:
-                    Calc.heatup_map(entity.position, self.hmap_miners, 8, offset=10)
+                    # Calc.heatup_map(entity.position, self.hmap_miners, 8, offset=10)
+                    pass
                 elif entity.entity_type in {EntityType.BUILDER_BASE, EntityType.MELEE_BASE, EntityType.RANGED_BASE}:
                     self.free_map[entity.position.x+5, entity.position.y+4] = False
             else:
                 if entity.entity_type == EntityType.TURRET:
-                    Calc.heatup_map(entity.position, self.hmap_enemies, 8, offset=10, size=2)
+                    pass
+                    # Calc.heatup_map(entity.position, self.hmap_enemies, 8, offset=10, size=2)
                 elif entity.entity_type == EntityType.MELEE_UNIT:
                     Calc.heatup_map(entity.position, self.hmap_enemies, 4, offset=10)
                 elif entity.entity_type == EntityType.RANGED_UNIT:
