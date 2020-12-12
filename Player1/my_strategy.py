@@ -249,6 +249,8 @@ class Map:
         for res in self.resources:
             coord = (res.position.x, res.position.y)
             addable = False
+            if self.hmap_enemies[coord[0], coord[1]]:
+                continue
             if (coord[0]-1 >= 0) and ((coord[0]-1, coord[1]) not in self.res_coords) and self.free_map[coord[0]-1, coord[1]]:
                 addable = True
             elif (coord[0]+1 < self.map_size) and (coord[0]+1, coord[1]) not in self.res_coords and self.free_map[coord[0]+1, coord[1]]:
@@ -716,10 +718,6 @@ class MyStrategy:
         except Exception as e:
             print(f'command_miners: {e}')
 
-        if game.tick == 160:
-            for line in damap.hmap_enemies:
-                print(line)
-            print(damap.hmap_enemies.shape)
         return Action(entity_actions)
 
     def debug_update(self, player_view, debug_interface):
