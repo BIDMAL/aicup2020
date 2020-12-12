@@ -107,16 +107,16 @@ class Map:
         for entity in entities:
             if entity.player_id == self.my_id:
                 if entity.entity_type == EntityType.BUILDER_UNIT:
-                    Calc.heatup_map(entity.position, self.hmap_miners, 5, offset=10)
+                    Calc.heatup_map(entity.position, self.hmap_miners, 8, offset=10)
                 elif entity.entity_type in {EntityType.BUILDER_BASE, EntityType.MELEE_BASE, EntityType.RANGED_BASE}:
                     self.free_map[entity.position.x+5, entity.position.y+4] = False
             else:
                 if entity.entity_type == EntityType.TURRET:
-                    Calc.heatup_map(entity.position, self.hmap_enemies, 5, offset=10, size=2)
+                    Calc.heatup_map(entity.position, self.hmap_enemies, 8, offset=10, size=2)
                 elif entity.entity_type == EntityType.MELEE_UNIT:
-                    Calc.heatup_map(entity.position, self.hmap_enemies, 1, offset=10)
+                    Calc.heatup_map(entity.position, self.hmap_enemies, 4, offset=10)
                 elif entity.entity_type == EntityType.RANGED_UNIT:
-                    Calc.heatup_map(entity.position, self.hmap_enemies, 5, offset=10)
+                    Calc.heatup_map(entity.position, self.hmap_enemies, 8, offset=10)
             if entity.entity_type == EntityType.RESOURCE:
                 self.res_coords.add((entity.position.x, entity.position.y))
                 self.res_ids.add(entity.id)
@@ -136,8 +136,8 @@ class Map:
                     for j in range(5):
                         self.free_map[entity.position.x+i, entity.position.y+j] = False
 
-        self.hmap_miners = np.array(self.hmap_miners[5:self.map_size+10, 10:self.map_size+10])
-        self.hmap_enemies = np.array(self.hmap_enemies[5:self.map_size+10, 10:self.map_size+10])
+        self.hmap_miners = np.array(self.hmap_miners[10:self.map_size+10, 10:self.map_size+10])
+        self.hmap_enemies = np.array(self.hmap_enemies[10:self.map_size+10, 10:self.map_size+10])
 
     def find_move_spot(self, unit_pos, target_pos, target_size):
 
@@ -656,7 +656,7 @@ class MyStrategy:
 
             if damap.hmap_enemies[cur_pos.x, cur_pos.y]:
                 miner.res = None
-                move_action = MoveAction(Vec2Int(13, 13), True, False)
+                move_action = MoveAction(Vec2Int(5, 5), True, False)
                 miner.rep = None
                 entity_actions[miner.id] = EntityAction(move_action, None, attack_action, None)
             elif miner.res is None:
@@ -719,7 +719,7 @@ class MyStrategy:
         if game.tick == 160:
             for line in damap.hmap_enemies:
                 print(line)
-
+            print(damap.hmap_enemies.shape)
         return Action(entity_actions)
 
     def debug_update(self, player_view, debug_interface):
