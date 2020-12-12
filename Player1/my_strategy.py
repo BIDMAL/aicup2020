@@ -658,8 +658,8 @@ class MyStrategy:
 
             if damap.hmap_enemies[cur_pos.x, cur_pos.y]:
                 miner.res = None
-                move_action = MoveAction(Vec2Int(5, 5), True, False)
                 miner.rep = None
+                move_action = MoveAction(Vec2Int(5, 5), True, False)
                 entity_actions[miner.id] = EntityAction(move_action, None, attack_action, None)
             elif miner.res is None:
                 dist, target_res, target_position = Calc.find_closest(cur_pos, damap.obtainable_resources, damap.map_size, game.res_avails)
