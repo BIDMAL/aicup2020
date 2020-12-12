@@ -670,37 +670,39 @@ class MyStrategy:
 
         entity_actions = {}
         game = Game(player_view.my_id, player_view.players, player_view.current_tick)
+        if not len(game.my_builder_bases):
+            return Action(entity_actions)
         damap = Map(game.parse_entities(player_view.entities, player_view.map_size))
 
         try:
             self.precalc(game, damap, entity_actions)
         except Exception as e:
-            pass
+            print(f'precalc: {e}')
 
         try:
             self.command_prod(game, entity_actions)
         except Exception as e:
-            pass
+            print(f'command_prod: {e}')
 
         try:
             self.command_army(game, damap, entity_actions)
         except Exception as e:
-            pass
+            print(f'command_army: {e}')
 
         try:
             self.command_build_prod(game, damap, entity_actions)
         except Exception as e:
-            pass
+            print(f'command_build_prod: {e}')
 
         try:
             self.command_build_houses(game, damap, entity_actions)
         except Exception as e:
-            pass
+            print(f'command_build_houses: {e}')
 
         try:
             self.command_miners(game, damap, entity_actions)
         except Exception as e:
-            pass
+            print(f'command_miners: {e}')
 
         return Action(entity_actions)
 
