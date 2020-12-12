@@ -115,9 +115,9 @@ class Map:
                     pass
                     # Calc.heatup_map(entity.position, self.hmap_enemies, 8, offset=10, size=2)
                 elif entity.entity_type == EntityType.MELEE_UNIT:
-                    Calc.heatup_map(entity.position, self.hmap_enemies, 3, offset=10)
+                    Calc.heatup_map(entity.position, self.hmap_enemies, 2, offset=10)
                 elif entity.entity_type == EntityType.RANGED_UNIT:
-                    Calc.heatup_map(entity.position, self.hmap_enemies, 7, offset=10)
+                    Calc.heatup_map(entity.position, self.hmap_enemies, 6, offset=10)
             if entity.entity_type == EntityType.RESOURCE:
                 self.res_coords.add((entity.position.x, entity.position.y))
                 self.res_ids.add(entity.id)
@@ -690,6 +690,8 @@ class MyStrategy:
         entity_actions = {}
         game = Game(player_view.my_id, player_view.players, player_view.current_tick)
         damap = Map(game.parse_entities(player_view.entities, player_view.map_size))
+        if not len(game.my_builder_bases):
+            return Action(entity_actions)
 
         try:
             self.precalc(game, damap, entity_actions)
