@@ -5,7 +5,6 @@ import numpy as np
 
 # TODO:
 # build in Round2
-# improve mov_to_res, refresh obtainable_resources
 # ranged kite melee, don't build melee
 # army doesn't suicide 1 by 1
 # probes run away from enemy army
