@@ -2,7 +2,6 @@ from model import Action, EntityAction, BuildAction, MoveAction, AttackAction, R
 from model import DebugCommand, DebugData
 from model import EntityType, Vec2Int
 import numpy as np
-import time
 
 # TODO:
 # ranged kite melee, don't build melee
@@ -17,6 +16,7 @@ class Calc:
 
     @staticmethod
     def heatup_map(position, hmap, size=1):
+
         pass
 
     @staticmethod
@@ -324,7 +324,6 @@ class MyStrategy:
 
     def __init__(self):
 
-        self.times = []
         self.commands_this_turn = []
         self.attack_mode = False
         self.need_houses = 0
@@ -635,16 +634,11 @@ class MyStrategy:
 
     def get_action(self, player_view, debug_interface):
 
-        self.times = []
         self.commands_this_turn = []
-        tstmp = time.time()
 
         entity_actions = {}
         game = Game(player_view.map_size, player_view.my_id, player_view.players)
         damap = Map(game.parse_entities(player_view.entities))
-
-        self.times.append(time.time()-tstmp)
-        tstmp = time.time()
 
         try:
             self.precalc(game, damap, entity_actions)
@@ -656,16 +650,10 @@ class MyStrategy:
         except Exception as e:
             print(f'command_prod: {e}')
 
-        self.times.append(time.time()-tstmp)
-        tstmp = time.time()
-
-        # try:
-        self.command_army(game, entity_actions)
-        # except Exception as e:
-        #    print(f'command_army: {e}')
-
-        self.times.append(time.time()-tstmp)
-        tstmp = time.time()
+        try:
+            self.command_army(game, entity_actions)
+        except Exception as e:
+            print(f'command_army: {e}')
 
         try:
             self.command_build_prod(game, damap, entity_actions)
@@ -677,27 +665,16 @@ class MyStrategy:
         except Exception as e:
             print(f'command_build_houses: {e}')
 
-        self.times.append(time.time()-tstmp)
-        tstmp = time.time()
-
         try:
             self.command_miners(game, entity_actions)
         except Exception as e:
             print(f'command_miners: {e}')
-
-        self.times.append(time.time()-tstmp)
 
         return Action(entity_actions)
 
     def debug_update(self, player_view, debug_interface):
 
         debug_interface.send(DebugCommand.Clear())
-        # if len(self.times) > 0:
-        #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'Init     : {self.times[0]*1000:.2f}')))
-        #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'Bases    : {self.times[1]*1000:.2f}')))
-        #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'Army     : {self.times[2]*1000:.2f}')))
-        #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'Constract: {self.times[3]*1000:.2f}')))
-        #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'Resourses: {self.times[4]*1000:.2f}')))
         # if len(self.workers) > 0:
         #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'Workers: {self.workers}')))
         # debug_interface.send(DebugCommand.Add(DebugData.Log(f'can_produce: {self.can_produce}')))

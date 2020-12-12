@@ -1,9 +1,15 @@
 from model import Action, EntityAction, BuildAction, MoveAction, AttackAction, RepairAction, AutoAttack
 from model import DebugCommand, DebugData
 from model import EntityType, Vec2Int
+import numpy as np
 
 
 class Calc:
+
+    @staticmethod
+    def heatup_map(position, hmap, size=1):
+
+        pass
 
     @staticmethod
     def distance_sqr(a, b):
@@ -52,6 +58,17 @@ class Calc:
                 if dist < 2:
                     break
         return dist, closest_target[0], closest_target[1]
+
+
+class Worker:
+
+    def __init__(self, wid, pos):
+
+        self.id = wid
+        self.pos = pos
+        self.mov = None
+        self.res = None
+        self.rep = None
 
 
 class Map:
@@ -192,6 +209,8 @@ class Game:
         self.my_turrets = []
         self.enemy_units = []
         self.enemy_buildings = []
+        self.miners_hmap = np.zeros((map_size+10, map_size+10))
+        self.enemies_hmap = np.zeros((map_size+10, map_size+10))
         self.free_spots = [[True for _ in range(self.map_size)] for _ in range(self.map_size)]
 
     def parse_entities(self, entities):
@@ -211,6 +230,7 @@ class Game:
                 elif entity.entity_type == EntityType.BUILDER_UNIT:
                     self.my_builder_units.append(entity)
                     self.my_builder_units_ids.add(entity.id)
+                    Calc.heatup_map(entity.position, self.miners_hmap)
                 elif entity.entity_type == EntityType.MELEE_BASE:
                     self.my_melee_bases.append(entity)
                 elif entity.entity_type == EntityType.MELEE_UNIT:
@@ -224,6 +244,10 @@ class Game:
             else:
                 if entity.entity_type in {EntityType.TURRET, EntityType.BUILDER_UNIT, EntityType.MELEE_UNIT, EntityType.RANGED_UNIT}:
                     self.enemy_units.append(entity)
+                    if entity.entity_type == EntityType.TURRET:
+                        Calc.heatup_map(entity.position, self.enemies_hmap, 2)
+                    else:
+                        Calc.heatup_map(entity.position, self.enemies_hmap)
                 elif entity.entity_type in {EntityType.WALL, EntityType.HOUSE, EntityType.BUILDER_BASE, EntityType.MELEE_BASE, EntityType.RANGED_BASE}:
                     self.enemy_buildings.append(entity)
 
@@ -302,7 +326,7 @@ class MyStrategy:
         self.prod_in_progress = []
         self.dedicated_prod_builders = []
         self.prod_buider_tasks = [[None, None, None, None], [None, None, None, None], [None, None, None, None], [None, None, None, None], [None, None, None, None]]
-        self.miner_tasks = []
+        self.my_miners = dict()
 
     def precalc(self, game, damap, entity_actions):
 
@@ -407,9 +431,26 @@ class MyStrategy:
             for i in range(need_dedicated_prod_builders):
                 game.my_builder_units.pop(0)
 
-        # for miner_task in self.miner_tasks:
-        #    if miner_task[0] is not None and miner_task[0] not in self.b
+        # miners
+        alive_miners_ids = set()
+        prev_miners_ids = set(self.my_miners.keys())
+        for miner in game.my_builder_units:
+            alive_miners_ids.add(miner.id)
+            if miner.id not in prev_miners_ids:
+                self.my_miners[miner.id] = Worker(miner.id, miner.position)
+            else:
+                self.my_miners[miner.id].pos = miner.position
+        for prev_miners_id in prev_miners_ids:
+            if prev_miners_id not in alive_miners_ids:
+                del(self.my_miners[prev_miners_id])
+        for key, val in self.my_miners.items():
+            if val.res is not None:
+                if val.res not in game.res_ids:
+                    self.my_miners[key].res = None
+                else:
+                    game.res_avails[val.res] = False
 
+        # can_produce, attack_mode
         cond1 = self.need_houses and (game.my_resource_count < self.need_houses*(50 + len(game.my_houses)))
         cond2 = self.need_prod and game.my_resource_count < 500
         if cond1 or cond2:
@@ -461,9 +502,9 @@ class MyStrategy:
                 move_target = Vec2Int(game.def_point[0], game.def_point[1])
             else:
                 if len(game.enemy_units) > 0:
-                    dist, attack_target, move_target = Calc.find_closest(cur_pos, game.enemy_units, game.map_size**2)
+                    dist, attack_target, move_target = Calc.find_closest(cur_pos, game.enemy_units, game.map_size)
                 elif len(game.enemy_buildings) > 0:
-                    dist, attack_target, move_target = Calc.find_closest(cur_pos, game.enemy_buildings, game.map_size**2)
+                    dist, attack_target, move_target = Calc.find_closest(cur_pos, game.enemy_buildings, game.map_size)
             if move_target is not None:
                 move_action = MoveAction(move_target, True, True)
                 attack_action = AttackAction(attack_target, AutoAttack(30, []))
@@ -564,15 +605,19 @@ class MyStrategy:
 
     def command_miners(self, game, entity_actions):
 
-        for builder in game.my_builder_units:
-            cur_pos = builder.position
-            move_action = None
-            attack_action = None
-            dist, target_res, target_position = Calc.find_closest(cur_pos, game.obtainable_resources, game.map_size**2, game.res_avails)
-            game.res_avails[target_res] = False
-            move_action = MoveAction(target_position, True, False)
-            attack_action = AttackAction(target_res, None)
-            entity_actions[builder.id] = EntityAction(move_action, None, attack_action, None)
+        for miner in self.my_miners.values():
+            if miner.res is None:
+                cur_pos = miner.pos
+                move_action = None
+                attack_action = None
+                dist, target_res, target_position = Calc.find_closest(cur_pos, game.obtainable_resources, game.map_size, game.res_avails)
+                game.res_avails[target_res] = False
+                miner.res = target_res
+                miner.mov = target_position
+                miner.rep = None
+                move_action = MoveAction(target_position, True, False)
+                attack_action = AttackAction(target_res, None)
+                entity_actions[miner.id] = EntityAction(move_action, None, attack_action, None)
 
     def get_action(self, player_view, debug_interface):
 
@@ -582,33 +627,33 @@ class MyStrategy:
 
         try:
             self.precalc(game, damap, entity_actions)
-        except:
-            pass
+        except Exception as e:
+            print(f'precalc: {e}')
 
         try:
             self.command_prod(game, entity_actions)
-        except:
-            pass
+        except Exception as e:
+            print(f'command_prod: {e}')
 
         try:
             self.command_army(game, entity_actions)
-        except:
-            pass
+        except Exception as e:
+            print(f'command_army: {e}')
 
         try:
             self.command_build_prod(game, damap, entity_actions)
-        except:
-            pass
+        except Exception as e:
+            print(f'command_build_prod: {e}')
 
         try:
             self.command_build_houses(game, damap, entity_actions)
-        except:
-            pass
+        except Exception as e:
+            print(f'command_build_houses: {e}')
 
         try:
             self.command_miners(game, entity_actions)
-        except:
-            pass
+        except Exception as e:
+            print(f'command_miners: {e}')
 
         return Action(entity_actions)
 
