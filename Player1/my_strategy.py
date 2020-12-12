@@ -5,7 +5,7 @@ import numpy as np
 import time
 
 # TODO:
-# TIME FAIL
+# heatup ignores size
 # build in Round2
 # ranged kite melee, don't build melee
 # army doesn't suicide 1 by 1
@@ -21,12 +21,9 @@ class Calc:
 
         posx = position.x + offset
         posy = position.y + offset
-        for i in range(size):
-            for j in range(size):
-                for x in range(0, radius+1):
-                    for y in range(posy+j-radius+x, posy+j+radius-x+1):
-                        hmap[posx+i+x, y] += 1
-                        hmap[posx+i-x, y] += 1
+        for x in range(0, radius+1):
+            hmap[posx+x, posy-radius+x] += 1
+            hmap[posx-x, posy+radius-x+1] += 1
 
     @staticmethod
     def distance_sqr(a, b):
