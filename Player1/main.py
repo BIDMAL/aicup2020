@@ -4,6 +4,7 @@ from my_strategy import MyStrategy
 from debug_interface import DebugInterface
 import socket
 import sys
+import cProfile
 
 
 class Runner:
@@ -38,8 +39,12 @@ class Runner:
                 raise Exception("Unexpected server message")
 
 
-if __name__ == "__main__":
+def main():
     host = "127.0.0.1" if len(sys.argv) < 2 else sys.argv[1]
     port = 31001 if len(sys.argv) < 3 else int(sys.argv[2])
     token = "0000000000000000" if len(sys.argv) < 4 else sys.argv[3]
     Runner(host, port, token).run()
+
+
+if __name__ == "__main__":
+    cProfile.run('main()')

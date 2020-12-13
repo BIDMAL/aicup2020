@@ -2,14 +2,13 @@ from model import Action, EntityAction, BuildAction, MoveAction, AttackAction, R
 from model import DebugCommand, DebugData
 from model import EntityType, Vec2Int
 import numpy as np
-import time
 
 # TODO:
 # TIME FAIL
-# heatup ignores size
 # build in Round2
 # ranged kite melee, don't build melee
 # army doesn't suicide 1 by 1
+# probes run away from enemy army
 # probes repair turrets when enemy army's nearby
 # try sending troops in packs
 # build turrets
@@ -22,9 +21,12 @@ class Calc:
 
         posx = position.x + offset
         posy = position.y + offset
-        for x in range(0, radius+1):
-            hmap[posx+x, posy-radius+x] += 1
-            hmap[posx-x, posy+radius-x+1] += 1
+        for i in range(size):
+            for j in range(size):
+                for x in range(0, radius+1):
+                    for y in range(posy+j-radius+x, posy+j+radius-x+1):
+                        hmap[posx+i+x, y] += 1
+                        hmap[posx+i-x, y] += 1
 
     @staticmethod
     def distance_sqr(a, b):
@@ -106,18 +108,16 @@ class Map:
         for entity in entities:
             if entity.player_id == self.my_id:
                 if entity.entity_type == EntityType.BUILDER_UNIT:
-                    # Calc.heatup_map(entity.position, self.hmap_miners, 8, offset=10)
-                    pass
+                    Calc.heatup_map(entity.position, self.hmap_miners, 8, offset=10)
                 elif entity.entity_type in {EntityType.BUILDER_BASE, EntityType.MELEE_BASE, EntityType.RANGED_BASE}:
                     self.free_map[entity.position.x+5, entity.position.y+4] = False
             else:
                 if entity.entity_type == EntityType.TURRET:
-                    pass
-                    # Calc.heatup_map(entity.position, self.hmap_enemies, 8, offset=10, size=2)
+                    Calc.heatup_map(entity.position, self.hmap_enemies, 8, offset=10, size=2)
                 elif entity.entity_type == EntityType.MELEE_UNIT:
-                    Calc.heatup_map(entity.position, self.hmap_enemies, 2, offset=10)
+                    Calc.heatup_map(entity.position, self.hmap_enemies, 4, offset=10)
                 elif entity.entity_type == EntityType.RANGED_UNIT:
-                    Calc.heatup_map(entity.position, self.hmap_enemies, 6, offset=10)
+                    Calc.heatup_map(entity.position, self.hmap_enemies, 8, offset=10)
             if entity.entity_type == EntityType.RESOURCE:
                 self.res_coords.add((entity.position.x, entity.position.y))
                 self.res_ids.add(entity.id)
@@ -346,7 +346,7 @@ class Game:
 class MyStrategy:
 
     def __init__(self):
-        self.times = 0
+
         self.attack_mode = False
         self.need_houses = 0
         self.houses_in_progress = []
@@ -684,14 +684,10 @@ class MyStrategy:
                 entity_actions[miner.id] = EntityAction(move_action, None, attack_action, None)
 
     def get_action(self, player_view, debug_interface):
-        self.times = 0
-        tstmp = time.time()
 
         entity_actions = {}
         game = Game(player_view.my_id, player_view.players, player_view.current_tick)
         damap = Map(game.parse_entities(player_view.entities, player_view.map_size))
-        if not len(game.my_builder_bases):
-            return Action(entity_actions)
 
         try:
             self.precalc(game, damap, entity_actions)
@@ -723,14 +719,11 @@ class MyStrategy:
         except Exception as e:
             print(f'command_miners: {e}')
 
-        self.times = time.time()-tstmp
-
         return Action(entity_actions)
 
     def debug_update(self, player_view, debug_interface):
 
         debug_interface.send(DebugCommand.Clear())
-        debug_interface.send(DebugCommand.Add(DebugData.Log(f'Time: {self.times*1000:.2f}')))
         # if len(self.workers) > 0:
         #     debug_interface.send(DebugCommand.Add(DebugData.Log(f'Workers: {self.workers}')))
         # debug_interface.send(DebugCommand.Add(DebugData.Log(f'can_produce: {self.can_produce}')))
